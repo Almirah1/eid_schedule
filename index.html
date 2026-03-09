@@ -278,10 +278,26 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem;
-    background: var(--gold-pale);
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, var(--gold-pale), rgba(201,168,76,0.15));
     border-radius: 12px;
     margin-bottom: 1rem;
+    border: 1px solid rgba(201,168,76,0.3);
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+  }
+
+  .extraction-panel.extracting .field-group input,
+  .extraction-panel.extracting .field-group textarea {
+    background: linear-gradient(90deg, var(--cream) 25%, #e8dfc9 50%, var(--cream) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s infinite linear;
+    pointer-events: none;
+    color: transparent;
+    border-color: var(--cream-dark);
   }
 
   .spinner {
@@ -864,7 +880,7 @@ async function extractWithAI(base64DataUrl) {
   const indicator = document.getElementById('processingIndicator');
   const addBtn = document.getElementById('addToScheduleBtn');
   indicator.style.display = 'flex';
-  document.getElementById('processingMsg').textContent = 'Reading your invitation with AI…';
+  document.getElementById('processingMsg').textContent = 'Reading invitation with AI…';
   addBtn.disabled = true;
 
   try {
@@ -877,40 +893,82 @@ async function extractWithAI(base64DataUrl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
-            { type: 'text', text: `Analyze this Eid open home invitation image and respond ONLY with a valid JSON object (no markdown, no extra text):
+        max_tokens: 1500,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+              { type: 'text', text: `You are extracting event details from an Eid open home / open house invitation image.
+
+Read ALL text visible in the image carefully — including decorative text, headers, footers, small print, and any text overlaid on backgrounds or images.
+
+Respond ONLY with a single valid JSON object. No markdown fences, no explanation, no extra text before or after.
+
 {
-  "host": "Family or person name hosting",
-  "date": "YYYY-MM-DD format, assume 2025 if year not shown, empty string if no date",
-  "startTime": "HH:MM in 24h format, empty string if not found",
-  "endTime": "HH:MM in 24h format, empty string if not found",
-  "address": "Full address as shown, empty string if not found",
-  "notes": "Other useful info (food, parking, dress), empty string if none"
-}` }
-          ]
-        }]
+  "host": "The hosting family or person's name. Look for 'hosted by', 'invite from', family names, or the name prominently displayed. Include 'The X Family' format if shown.",
+  "date": "The event date as YYYY-MM-DD. Parse written dates like 'Monday 31st March', 'Eid day', '1 Shawwal' etc. The current year is 2025. Eid al-Fitr 2025 is around March 30 - April 1. Eid al-Adha 2025 is around June 6-7. If a day of week is given, use it to resolve the exact date. Return empty string only if truly no date info exists.",
+  "startTime": "Start time as HH:MM in 24-hour format. Look for 'from', 'open from', 'starting at', time ranges like '11am-4pm'. Convert 12h to 24h (e.g. 11am=11:00, 2pm=14:00, 6:30pm=18:30). Empty string if not found.",
+  "endTime": "End time as HH:MM in 24-hour format. Look for 'until', 'to', 'till', 'closes at', end of a time range. Empty string if not found.",
+  "address": "Full street address including suburb/city. Look for house number, street name, suburb. In New Zealand addresses may include Auckland suburbs. Combine all address parts into one string. Empty string if not found.",
+  "notes": "Any other relevant details such as: food being served, dress code, parking info, RSVP requests, contact numbers, 'please bring', special instructions. Combine into a single readable sentence or two. Empty string if nothing extra."
+}
+
+Be thorough — extract every piece of information visible. If something is partially visible or decorative, still try to read it.`
+              }
+            ]
+          }
+        ]
       })
     });
 
     const data = await res.json();
+    const rawText = (data.content?.[0]?.text || '').trim();
+
+    // Robust JSON extraction — handle any wrapping
     let parsed = {};
-    try { parsed = JSON.parse((data.content?.[0]?.text || '{}').replace(/```json|```/g,'').trim()); } catch(e){}
+    try {
+      // Try direct parse first
+      parsed = JSON.parse(rawText);
+    } catch {
+      // Try extracting JSON block from text
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch(e) { console.warn('JSON parse failed', e); }
+      }
+    }
 
-    if (parsed.host) document.getElementById('fieldHost').value = parsed.host;
-    if (parsed.date) document.getElementById('fieldDate').value = parsed.date;
-    if (parsed.startTime) document.getElementById('fieldStart').value = parsed.startTime;
-    if (parsed.endTime) document.getElementById('fieldEnd').value = parsed.endTime;
-    if (parsed.address) document.getElementById('fieldAddress').value = parsed.address;
-    if (parsed.notes) document.getElementById('fieldNotes').value = parsed.notes;
+    // Fill in all fields — clear first so old values don't linger
+    document.getElementById('fieldHost').value = parsed.host || '';
+    document.getElementById('fieldDate').value = parsed.date || '';
+    document.getElementById('fieldStart').value = parsed.startTime || '';
+    document.getElementById('fieldEnd').value = parsed.endTime || '';
+    document.getElementById('fieldAddress').value = parsed.address || '';
+    document.getElementById('fieldNotes').value = parsed.notes || '';
 
-    showToast('✨ Details extracted! Review and save.');
+    // Visual feedback on which fields were filled
+    const filled = ['fieldHost','fieldDate','fieldStart','fieldEnd','fieldAddress','fieldNotes']
+      .filter(id => document.getElementById(id).value.trim() !== '');
+
+    filled.forEach(id => {
+      const el = document.getElementById(id);
+      el.style.borderColor = 'var(--gold)';
+      el.style.background = 'rgba(201,168,76,0.06)';
+      setTimeout(() => {
+        el.style.borderColor = '';
+        el.style.background = '';
+      }, 3000);
+    });
+
+    const count = filled.length;
+    showToast(count > 0
+      ? `✨ ${count} detail${count > 1 ? 's' : ''} extracted! Review and save.`
+      : '⚠️ Could not read details — please fill in manually'
+    );
+
   } catch(err) {
     console.error('AI error:', err);
-    showToast('⚠️ Could not auto-extract — please fill in manually');
+    showToast('⚠️ Extraction failed — please fill in manually');
   }
 
   indicator.style.display = 'none';
