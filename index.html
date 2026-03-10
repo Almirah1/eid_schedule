@@ -1182,16 +1182,57 @@ function getApiKey() {
 
 function saveApiKey() {
   const input = document.getElementById('apiKeyInput');
+  const btn = document.querySelector('.api-save-btn');
   const key = input.value.trim();
-  if (!key) { showToast('⚠️ Please enter your API key'); return; }
-  if (!key.startsWith('sk-ant-')) {
-    showToast('⚠️ That doesn't look like a Claude API key (should start with sk-ant-)');
+
+  if (!key) {
+    showInlineFeedback('error', 'Please paste your Claude API key above');
+    input.focus();
     return;
   }
+  if (!key.startsWith('sk-ant-')) {
+    showInlineFeedback('error', 'That does not look right — Claude API keys start with sk-ant-');
+    input.focus();
+    return;
+  }
+
+  // Save it
   localStorage.setItem(API_KEY_STORAGE, key);
-  input.value = ''; // clear from DOM for security
+  input.value = '';
+
+  // Visual confirmation on the button
+  const origText = btn.textContent;
+  btn.textContent = '✓ Saved!';
+  btn.style.background = '#4CAF50';
+  setTimeout(() => { btn.textContent = origText; btn.style.background = ''; }, 2500);
+
+  showInlineFeedback('success', 'Key saved — AI extraction is ready to use!');
   updateApiUi();
-  showToast('🔑 API key saved! Ready to extract invitations.');
+  showToast('🔑 Claude API key saved!');
+}
+
+function showInlineFeedback(type, msg) {
+  let el = document.getElementById('apiFeedback');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'apiFeedback';
+    const row = document.querySelector('.api-input-row');
+    row.parentNode.insertBefore(el, row.nextSibling);
+  }
+  const isSuccess = type === 'success';
+  el.style.cssText = [
+    'margin-top:0.65rem',
+    'padding:0.6rem 1rem',
+    'border-radius:10px',
+    'font-size:0.85rem',
+    'font-weight:500',
+    'display:block',
+    isSuccess
+      ? 'background:rgba(76,175,80,0.13);color:#2E7D32;border:1.5px solid rgba(76,175,80,0.35)'
+      : 'background:rgba(224,90,90,0.1);color:#C0392B;border:1.5px solid rgba(224,90,90,0.3)',
+  ].join(';');
+  el.innerHTML = (isSuccess ? '✅ ' : '⚠️ ') + msg;
+  if (isSuccess) setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
 function clearApiKey() {
