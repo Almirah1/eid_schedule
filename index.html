@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
 <title>Eid Open Homes — Family Scheduler</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Eid Homes">
+<meta name="theme-color" content="#0D3A45">
 <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -992,6 +996,240 @@
 
   .day-tab.active .tab-count { background: var(--gold); color: var(--teal-dark); }
 
+
+  /* ════════════════════════════════════════════════════
+     MOBILE / iPHONE OPTIMISATIONS
+     ════════════════════════════════════════════════════ */
+
+  /* Safe area padding for iPhone notch/home bar */
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  @media (max-width: 600px) {
+
+    /* ── Header ── */
+    header {
+      padding: 1.5rem 1rem 2rem;
+    }
+
+    .crescent { font-size: 2.2rem; }
+
+    header h1 { font-size: 1.75rem; }
+
+    .eid-greeting { font-size: 0.95rem; }
+
+    header .subtitle { font-size: 0.75rem; letter-spacing: 0.07em; }
+
+    .sync-bar { font-size: 0.75rem; padding: 0.4rem 1rem; }
+
+    .header-settings {
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 40px;
+      height: 40px;
+    }
+
+    /* ── Main padding ── */
+    main { padding: 1rem 0.875rem 5rem; }
+
+    /* ── Upload section ── */
+    .upload-section { padding: 1.25rem; border-radius: 16px; }
+
+    .drop-zone { padding: 2rem 1rem; border-radius: 12px; }
+
+    .drop-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .drop-zone h3 { font-size: 1.05rem; }
+
+    .drop-zone p { font-size: 0.8rem; }
+
+    .upload-btn {
+      padding: 0.7rem 1.5rem;
+      font-size: 0.875rem;
+      /* Make tap target larger */
+      min-height: 44px;
+    }
+
+    /* ── API banner ── */
+    .api-banner {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 1rem;
+      gap: 0.75rem;
+    }
+
+    .api-input-row { min-width: unset; }
+
+    .api-input-row input { font-size: 0.8rem; }
+
+    .api-save-btn { min-height: 44px; }
+
+    /* ── Preview section ── */
+    .preview-section { padding: 1.25rem; border-radius: 16px; }
+
+    .preview-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+    .preview-img-wrap img { height: 180px; }
+
+    /* ── Form fields ── */
+    .field-group input,
+    .field-group textarea {
+      font-size: 1rem; /* prevents iOS zoom on focus */
+      min-height: 44px;
+      padding: 0.7rem 0.9rem;
+    }
+
+    .field-group textarea { min-height: 72px; }
+
+    .action-row { flex-direction: column; }
+
+    .btn-primary, .btn-secondary {
+      min-height: 48px;
+      font-size: 0.95rem;
+      width: 100%;
+    }
+
+    /* ── Event cards ── */
+    .event-card {
+      padding: 1rem;
+      gap: 0.75rem;
+      border-radius: 14px;
+      /* Disable hover lift on touch - feels wrong on mobile */
+      transition: none;
+    }
+
+    .event-card:hover { transform: none; box-shadow: var(--shadow); }
+
+    /* Hide decorative crescent on small screens (clutters layout) */
+    .event-card::after { display: none; }
+
+    .time-block {
+      padding: 0.6rem 0.75rem;
+      min-width: 68px;
+    }
+
+    .time-block .time-start { font-size: 0.95rem; }
+
+    .time-block .time-end { font-size: 0.7rem; }
+
+    .time-block .time-date { font-size: 0.62rem; }
+
+    .event-info h3 { font-size: 1rem; }
+
+    .meta-item { font-size: 0.78rem; }
+
+    /* Action buttons — bigger tap targets, horizontal row at bottom */
+    .event-actions {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.1rem;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      font-size: 1.1rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+    }
+
+    /* ── Schedule header ── */
+    .schedule-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+
+    .schedule-header h2 { font-size: 1.4rem; }
+
+    .header-right { flex-wrap: wrap; }
+
+    /* ── Sort bar ── */
+    .sort-bar { gap: 0.4rem; }
+
+    .sort-btn {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.78rem;
+      min-height: 36px;
+    }
+
+    /* ── Map section ── */
+    .map-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem;
+    }
+
+    .map-header h2 { font-size: 1.2rem; }
+
+    .map-controls { width: 100%; justify-content: flex-end; }
+
+    .map-btn {
+      min-height: 40px;
+      font-size: 0.8rem;
+      padding: 0.5rem 1rem;
+    }
+
+    #mapContainer { height: 320px; }
+
+    .day-tab {
+      font-size: 0.78rem;
+      padding: 0.45rem 0.85rem;
+      min-height: 36px;
+    }
+
+    .route-panel { padding: 0.875rem 1rem; }
+
+    .route-stop { font-size: 0.75rem; padding: 0.25rem 0.65rem; }
+
+    /* ── Modal ── */
+    .modal {
+      border-radius: 20px 20px 0 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 100%;
+      max-height: 90vh;
+      margin: 0;
+      padding: 1.5rem 1.25rem;
+      padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
+
+    .modal-overlay { align-items: flex-end; padding: 0; }
+
+    /* ── Toast ── */
+    .toast {
+      left: 1rem;
+      right: 1rem;
+      bottom: calc(1.5rem + env(safe-area-inset-bottom));
+      font-size: 0.875rem;
+      justify-content: center;
+      text-align: center;
+    }
+
+    /* ── Empty/loading states ── */
+    .empty-state { padding: 2.5rem 1rem; }
+    .empty-state .empty-icon { font-size: 2.5rem; }
+    .empty-state h3 { font-size: 1.1rem; }
+
+  }
+
+  /* Slightly larger phones (iPhone Pro Max etc) */
+  @media (max-width: 430px) {
+    .event-card { grid-template-columns: auto 1fr; }
+    /* Move actions below the event info */
+    .event-actions {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      justify-content: flex-end;
+      border-top: 1px solid var(--cream-dark);
+      padding-top: 0.6rem;
+      margin-top: 0.1rem;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -1750,19 +1988,92 @@ async function geocodeAddress(address) {
   if (!address) return null;
   const key = address.trim().toLowerCase();
   if (geocodeCache[key]) return geocodeCache[key];
-  try {
-    const q = encodeURIComponent(address + ', New Zealand');
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
-      headers: { 'Accept-Language': 'en', 'User-Agent': 'EidSchedulerApp/1.0' }
-    });
-    const data = await res.json();
-    if (data && data.length > 0) {
-      const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache[key] = result;
-      return result;
-    }
-  } catch(e) { console.warn('Geocode failed:', address, e); }
+
+  // Build a series of progressively broader query attempts
+  const attempts = buildGeoQueries(address);
+
+  for (const query of attempts) {
+    try {
+      await new Promise(r => setTimeout(r, 300)); // small gap between retries
+      const q = encodeURIComponent(query);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=3&countrycodes=nz&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en', 'User-Agent': 'EidSchedulerApp/1.0' } }
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        // Prefer results that are actually in NZ
+        const nz = data.find(r => r.display_name.includes('New Zealand')) || data[0];
+        const result = { lat: parseFloat(nz.lat), lng: parseFloat(nz.lon), display: nz.display_name };
+        geocodeCache[key] = result;
+        console.log(`Geocoded "${address}" via query: "${query}" → ${result.lat}, ${result.lng}`);
+        return result;
+      }
+    } catch(e) { console.warn('Geocode attempt failed:', query, e); }
+  }
+
+  console.warn('All geocode attempts failed for:', address);
   return null;
+}
+
+// Build multiple query strategies from most specific to broadest
+function buildGeoQueries(address) {
+  const cleaned = address.trim();
+  const queries = [];
+
+  // Strategy 1: exact address + Auckland, New Zealand
+  queries.push(cleaned + ', Auckland, New Zealand');
+
+  // Strategy 2: exact address + New Zealand (no city)
+  queries.push(cleaned + ', New Zealand');
+
+  // Strategy 3: if address has a suburb at end, try just street + suburb + Auckland
+  // e.g. "11 Sagitta Drive Flatbush" → "11 Sagitta Drive, Flatbush, Auckland"
+  const parts = cleaned.split(/[,\n]+/).map(p => p.trim()).filter(Boolean);
+  if (parts.length === 1) {
+    // Single line — try splitting on last word as suburb
+    const words = cleaned.split(' ');
+    if (words.length >= 3) {
+      const lastWord = words[words.length - 1];
+      const streetPart = words.slice(0, -1).join(' ');
+      // Only treat as suburb if last word is capitalised (likely a place name)
+      if (/^[A-Z]/.test(lastWord)) {
+        queries.push(`${streetPart}, ${lastWord}, Auckland, New Zealand`);
+        queries.push(`${streetPart}, ${lastWord}, New Zealand`);
+      }
+      // Also try last two words as suburb
+      if (words.length >= 4) {
+        const lastTwo = words.slice(-2).join(' ');
+        const streetPart2 = words.slice(0, -2).join(' ');
+        if (/^[A-Z]/.test(lastTwo)) {
+          queries.push(`${streetPart2}, ${lastTwo}, Auckland, New Zealand`);
+        }
+      }
+    }
+  } else if (parts.length >= 2) {
+    // Multi-part address — try appending Auckland to each combo
+    queries.push(parts.join(', ') + ', Auckland, New Zealand');
+    queries.push(parts[0] + ', ' + parts[parts.length - 1] + ', Auckland, New Zealand');
+  }
+
+  // Strategy 4: structured search — split number/street/suburb
+  const streetMatch = cleaned.match(/^(\d+[a-zA-Z]?)\s+(.+)/);
+  if (streetMatch) {
+    const houseNum = streetMatch[1];
+    const rest = streetMatch[2];
+    const restWords = rest.split(' ');
+    // Try with just the street name (no house number) if short address
+    if (restWords.length <= 3) {
+      queries.push(`${rest}, Auckland, New Zealand`);
+    }
+  }
+
+  // Strategy 5: broadest — just the raw address with NZ bounding box
+  // (handled by countrycodes=nz param above, but try without city constraint)
+  queries.push(cleaned);
+
+  // Deduplicate while preserving order
+  return [...new Set(queries)];
 }
 
 // ── Custom marker icon ────────────────────────────────────────────────────────
@@ -1895,8 +2206,9 @@ async function buildMap(forceRefresh = false) {
     msgEl.textContent = `Locating ${i+1} of ${withAddress.length}: ${ev.host}…`;
     const geo = await geocodeAddress(ev.address);
 
-    // Only delay if we actually hit the API (not cached)
-    if (!fromCache) await new Promise(r => setTimeout(r, 1100));
+    // Delay between addresses to respect Nominatim rate limits
+    // (geocodeAddress handles its own internal retry delays)
+    if (!fromCache) await new Promise(r => setTimeout(r, 1200));
 
     if (geo) {
       geocodedEvents.push({ event: ev, lat: geo.lat, lng: geo.lng });
@@ -1907,8 +2219,12 @@ async function buildMap(forceRefresh = false) {
   statusEl.style.display = 'none';
   refreshBtn.disabled = false;
 
+  const failed = withAddress.filter(ev =>
+    !geocodedEvents.find(g => g.event.id === ev.id)
+  );
+
   if (geocodedEvents.length === 0) {
-    showToast('❌ Could not locate any addresses');
+    showToast('❌ Could not locate any addresses — try adding suburb names');
     return;
   }
 
@@ -1916,7 +2232,21 @@ async function buildMap(forceRefresh = false) {
   buildDayTabs(geocodedEvents);
   showMarkersForDay(activeDay);
 
-  showToast(`🗺️ ${geocoded} visit${geocoded !== 1 ? 's' : ''} mapped across ${[...new Set(geocodedEvents.map(e => e.event.date||'undated'))].length} day(s)`);
+  const days = [...new Set(geocodedEvents.map(e => e.event.date||'undated'))].length;
+  if (failed.length > 0) {
+    const names = failed.map(e => e.host).join(', ');
+    showToast(`🗺️ ${geocoded} mapped · ⚠️ Could not find: ${names}`);
+    // Also show inline warning
+    const statusEl = document.getElementById('geocodingStatus');
+    const msgEl = document.getElementById('geocodingMsg');
+    statusEl.style.display = 'flex';
+    statusEl.style.background = 'rgba(224,90,90,0.1)';
+    msgEl.style.color = '#C0392B';
+    msgEl.textContent = `⚠️ ${failed.length} address${failed.length>1?'es':''} not found: ${failed.map(e=>e.address).join(' · ')} — try adding suburb/city`;
+    setTimeout(() => { statusEl.style.display = 'none'; statusEl.style.background=''; msgEl.style.color=''; }, 8000);
+  } else {
+    showToast(`🗺️ All ${geocoded} visit${geocoded !== 1 ? 's' : ''} mapped!`);
+  }
 }
 
 // ── Nearest-neighbour TSP ─────────────────────────────────────────────────────
