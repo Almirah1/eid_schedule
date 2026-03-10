@@ -448,7 +448,7 @@
     margin-bottom: 1rem;
     border-left: 5px solid var(--gold);
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto auto 1fr auto;
     gap: 1.25rem;
     align-items: start;
     transition: all 0.25s ease;
@@ -1218,7 +1218,7 @@
 
   /* Slightly larger phones (iPhone Pro Max etc) */
   @media (max-width: 430px) {
-    .event-card { grid-template-columns: auto 1fr; }
+    .event-card { grid-template-columns: auto auto 1fr; }
     /* Move actions below the event info */
     .event-actions {
       grid-column: 1 / -1;
@@ -1228,6 +1228,188 @@
       padding-top: 0.6rem;
       margin-top: 0.1rem;
     }
+  }
+
+
+  /* ── VISITED STATE ───────────────────────────────────────────── */
+  .event-card.visited {
+    opacity: 0.6;
+    border-left-color: #4CAF50;
+    background: #f9fdf9;
+  }
+
+  .event-card.visited .time-start,
+  .event-card.visited h3 { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.25); }
+
+  .visited-btn {
+    background: none;
+    border: 2px solid var(--cream-dark);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+
+  .visited-btn:hover { border-color: #4CAF50; background: rgba(76,175,80,0.1); }
+
+  .event-card.visited .visited-btn {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: white;
+  }
+
+  .visited-count {
+    font-size: 0.75rem;
+    color: #4CAF50;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  /* ── DAY GROUP (collapsible) ─────────────────────────────────── */
+  .day-group { margin-bottom: 0.5rem; }
+
+  .day-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 1rem;
+    background: var(--white);
+    border-radius: 14px;
+    cursor: pointer;
+    border: 1px solid var(--cream-dark);
+    margin-bottom: 0.5rem;
+    user-select: none;
+    transition: background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .day-group-header:hover { background: var(--cream); }
+
+  .day-group-header.collapsed { margin-bottom: 0; border-radius: 14px; }
+
+  .day-group-title {
+    font-family: 'Amiri', serif;
+    font-size: 1.05rem;
+    color: var(--teal-dark);
+    font-weight: 700;
+  }
+
+  .day-group-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .day-group-chevron {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    transition: transform 0.25s;
+    display: inline-block;
+  }
+
+  .day-group-header.collapsed .day-group-chevron { transform: rotate(-90deg); }
+
+  .day-group-body {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
+    max-height: 2000px;
+    opacity: 1;
+  }
+
+  .day-group-body.collapsed { max-height: 0; opacity: 0; }
+
+  /* ── SETTINGS MODAL ──────────────────────────────────────────── */
+  .settings-section {
+    border-bottom: 1px solid var(--cream-dark);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .settings-section h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .eid-date-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .eid-date-row input[type=date] {
+    flex: 1;
+    min-width: 140px;
+    padding: 0.6rem 0.9rem;
+    border: 1.5px solid var(--cream-dark);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--cream);
+    outline: none;
+  }
+
+  .eid-date-row input[type=date]:focus { border-color: var(--gold); background: var(--white); }
+
+  .eid-date-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+  }
+
+  .clear-key-btn {
+    background: transparent;
+    color: #C0392B;
+    border: 1.5px solid rgba(192,57,43,0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .clear-key-btn:hover { background: rgba(192,57,43,0.08); border-color: #C0392B; }
+
+  .key-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--cream);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .key-status-row .key-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    .day-group-header { padding: 0.6rem 0.875rem; border-radius: 12px; }
+    .day-group-title { font-size: 0.95rem; }
   }
 
 </style>
@@ -1245,7 +1427,7 @@
       <span id="syncStatus">Connecting to family schedule…</span>
     </div>
   </div>
-  <button class="header-settings" onclick="toggleApiBanner()" title="API Key Settings">⚙️</button>
+  <button class="header-settings" onclick="openSettings()" title="Settings">⚙️</button>
 </header>
 
 <main>
@@ -1379,6 +1561,42 @@
     </div>
   </div>
 </main>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:440px;">
+    <h3>⚙️ Settings</h3>
+
+    <div class="settings-section">
+      <h4>🌙 Eid Date</h4>
+      <p class="eid-date-hint" style="margin-bottom:0.6rem;">Invitations that say "Eid" or "Eid day" will use this date.</p>
+      <div class="eid-date-row">
+        <input type="date" id="settingsEidDate" onchange="saveEidDate()">
+        <button class="btn-secondary" onclick="clearEidDate()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Clear</button>
+      </div>
+      <p class="eid-date-hint" id="eidDateHint" style="margin-top:0.5rem;color:var(--teal);"></p>
+    </div>
+
+    <div class="settings-section">
+      <h4>🔑 Claude API Key</h4>
+      <div class="key-status-row" id="settingsKeyStatus">
+        <div class="key-dot" id="settingsKeyDot"></div>
+        <span id="settingsKeyLabel">No key saved</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <input type="password" id="settingsApiInput" placeholder="sk-ant-api03-…" autocomplete="off"
+          style="flex:1;min-width:160px;padding:0.6rem 0.9rem;border:1.5px solid var(--cream-dark);border-radius:10px;font-family:monospace;font-size:0.82rem;outline:none;background:var(--cream);"
+          onkeydown="if(event.key==='Enter') saveApiKeyFromSettings()">
+        <button class="api-save-btn" onclick="saveApiKeyFromSettings()" style="min-height:40px;">Save</button>
+      </div>
+      <button class="clear-key-btn" onclick="clearApiKey()" style="margin-top:0.6rem;">Remove saved key</button>
+    </div>
+
+    <div class="action-row" style="margin-top:0.5rem;">
+      <button class="btn-primary" onclick="closeSettings()">Done</button>
+    </div>
+  </div>
+</div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"><span id="toastMsg">✓ Done!</span></div>
@@ -1565,6 +1783,7 @@ function normalizeRow(row) {
     address: row.address || '',
     notes: row.notes || '',
     image_url: row.image_url || null,
+    visited: row.visited || false,
   };
 }
 
@@ -1670,7 +1889,7 @@ Respond ONLY with a single valid JSON object. No markdown fences, no explanation
 
 {
   "host": "The hosting family or person's name. Look for 'hosted by', 'invite from', family names, or the name prominently displayed. Include 'The X Family' format if shown.",
-  "date": "The event date as YYYY-MM-DD. Parse written dates like 'Monday 31st March', 'Eid day', '1 Shawwal' etc. The current year is 2025. Eid al-Fitr 2025 is around March 30 - April 1. Eid al-Adha 2025 is around June 6-7. If a day of week is given, use it to resolve the exact date. Return empty string only if truly no date info exists.",
+  "date": "The event date as YYYY-MM-DD. Parse written dates like 'Monday 31st March', 'Eid day', '1 Shawwal' etc. The current year is 2025. If the invitation mentions Eid, Eid day, or similar without a specific date, use THIS date for Eid: ${getEidDate()}. If a day of week is given, use it to resolve the exact date. Return empty string only if truly no date info exists.",
   "startTime": "Start time as HH:MM in 24-hour format. Look for 'from', 'open from', 'starting at', time ranges like '11am-4pm'. Convert 12h to 24h (e.g. 11am=11:00, 2pm=14:00, 6:30pm=18:30). Empty string if not found.",
   "endTime": "End time as HH:MM in 24-hour format. Look for 'until', 'to', 'till', 'closes at', end of a time range. Empty string if not found.",
   "address": "Full street address including suburb/city. Look for house number, street name, suburb. In New Zealand addresses may include Auckland suburbs. Combine all address parts into one string. Empty string if not found.",
@@ -1825,13 +2044,26 @@ function hasConflict(ev) {
 }
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
+// Track which day groups the user has collapsed
+const collapsedDays = new Set();
+
 function renderSchedule() {
   const list = document.getElementById('scheduleList');
   const sorted = getSorted();
-  document.getElementById('eventCount').textContent = `${events.length} visit${events.length !== 1 ? 's' : ''}`;
-  // If map is already initialised, enable/disable the route button based on events
+  const visitedCount = events.filter(e => e.visited).length;
   const routeBtn = document.getElementById('routeBtn');
   if (routeBtn) routeBtn.disabled = geocodedEvents.length < 2;
+
+  // Update count badge — show visited progress
+  const total = events.length;
+  const countEl = document.getElementById('eventCount');
+  if (visitedCount > 0) {
+    countEl.innerHTML = `${visitedCount}/${total} visited`;
+    countEl.style.background = visitedCount === total ? '#4CAF50' : 'var(--teal)';
+  } else {
+    countEl.textContent = `${total} visit${total !== 1 ? 's' : ''}`;
+    countEl.style.background = '';
+  }
 
   if (!sorted.length) {
     list.innerHTML = `
@@ -1843,36 +2075,83 @@ function renderSchedule() {
     return;
   }
 
-  list.innerHTML = sorted.map(ev => {
-    const conflict = hasConflict(ev);
-    const isNew = recentlyAddedIds.has(ev.id);
-    const dateStr = ev.date
-      ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' })
-      : '—';
+  // By Date mode — collapsible day groups
+  if (sortMode === 'date') {
+    const grouped = {};
+    sorted.forEach(ev => {
+      const key = ev.date || 'undated';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(ev);
+    });
 
-    return `
-    <div class="event-card ${conflict ? 'conflict' : ''}">
-      <div class="time-block">
-        <div class="time-start">${ev.start ? formatTime(ev.start) : '—'}</div>
-        ${ev.end ? `<div class="time-end">to ${formatTime(ev.end)}</div>` : ''}
-        <div class="time-date">${dateStr}</div>
-      </div>
-      <div class="event-info">
-        <h3>${escHtml(ev.host)}${isNew ? '<span class="new-badge">New</span>' : ''}</h3>
-        <div class="event-meta">
-          ${ev.address ? `<div class="meta-item"><span class="meta-icon">📍</span>${escHtml(ev.address)}</div>` : ''}
-          ${ev.notes ? `<div class="meta-item"><span class="meta-icon">📝</span>${escHtml(ev.notes)}</div>` : ''}
+    list.innerHTML = Object.entries(grouped).map(([dateKey, evs]) => {
+      const dateLabel = dateKey === 'undated' ? 'No Date'
+        : new Date(dateKey + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long' });
+      const isCollapsed = collapsedDays.has(dateKey);
+      const visitedInDay = evs.filter(e => e.visited).length;
+      const dayMeta = visitedInDay > 0
+        ? `<span class="visited-count">✓ ${visitedInDay}/${evs.length}</span>`
+        : `<span>${evs.length} visit${evs.length !== 1 ? 's' : ''}</span>`;
+
+      return `
+      <div class="day-group">
+        <div class="day-group-header ${isCollapsed ? 'collapsed' : ''}" onclick="toggleDayGroup('${dateKey}')">
+          <span class="day-group-title">${dateLabel}</span>
+          <div class="day-group-meta">
+            ${dayMeta}
+            <span class="day-group-chevron">▾</span>
+          </div>
         </div>
-        ${conflict ? `<div class="conflict-badge">⚠️ Time conflict detected</div>` : ''}
+        <div class="day-group-body ${isCollapsed ? 'collapsed' : ''}">
+          ${evs.map(ev => renderEventCard(ev)).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // Time / Alpha mode — flat list
+  list.innerHTML = sorted.map(ev => renderEventCard(ev)).join('');
+}
+
+function toggleDayGroup(dateKey) {
+  if (collapsedDays.has(dateKey)) collapsedDays.delete(dateKey);
+  else collapsedDays.add(dateKey);
+  renderSchedule();
+}
+
+function renderEventCard(ev) {
+  const conflict = hasConflict(ev);
+  const isNew = recentlyAddedIds.has(ev.id);
+  const dateStr = ev.date
+    ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' })
+    : '—';
+
+  return `
+  <div class="event-card ${conflict ? 'conflict' : ''} ${ev.visited ? 'visited' : ''}">
+    <button class="visited-btn" title="${ev.visited ? 'Mark unvisited' : 'Mark as visited'}" onclick="toggleVisited('${ev.id}')">
+      ${ev.visited ? '✓' : ''}
+    </button>
+    <div class="time-block">
+      <div class="time-start">${ev.start ? formatTime(ev.start) : '—'}</div>
+      ${ev.end ? `<div class="time-end">to ${formatTime(ev.end)}</div>` : ''}
+      <div class="time-date">${dateStr}</div>
+    </div>
+    <div class="event-info">
+      <h3>${escHtml(ev.host)}${isNew ? '<span class="new-badge">New</span>' : ''}</h3>
+      <div class="event-meta">
+        ${ev.address ? `<div class="meta-item"><span class="meta-icon">📍</span>${escHtml(ev.address)}</div>` : ''}
+        ${ev.notes ? `<div class="meta-item"><span class="meta-icon">📝</span>${escHtml(ev.notes)}</div>` : ''}
       </div>
-      <div class="event-actions">
-        ${ev.image_url ? `<button class="icon-btn" title="View invitation" onclick="openLightbox('${escAttr(ev.image_url)}')">🖼️</button>` : ''}
-        <button class="icon-btn" title="Edit" onclick="openEdit('${ev.id}')">✏️</button>
-        <button class="icon-btn delete" title="Delete" onclick="deleteEvent('${ev.id}')">🗑️</button>
-        ${ev.address ? `<button class="icon-btn" title="Open in Maps" onclick="openMaps('${escAttr(ev.address)}')">🗺️</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+      ${conflict ? `<div class="conflict-badge">⚠️ Time conflict detected</div>` : ''}
+    </div>
+    <div class="event-actions">
+      ${ev.image_url ? `<button class="icon-btn" title="View invitation" onclick="openLightbox('${escAttr(ev.image_url)}')">🖼️</button>` : ''}
+      <button class="icon-btn" title="Edit" onclick="openEdit('${ev.id}')">✏️</button>
+      <button class="icon-btn delete" title="Delete" onclick="deleteEvent('${ev.id}')">🗑️</button>
+      ${ev.address ? `<button class="icon-btn" title="Open in Maps" onclick="openMaps('${escAttr(ev.address)}')">🗺️</button>` : ''}
+    </div>
+  </div>`;
 }
 
 function formatTime(t) {
@@ -1934,6 +2213,100 @@ async function deleteEvent(id) {
   if (error) { showToast('❌ Could not delete'); return; }
   showToast('🗑️ Visit removed');
 }
+
+// ─── VISITED TOGGLE ──────────────────────────────────────────────────────────
+async function toggleVisited(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  const newVal = !ev.visited;
+  // Optimistic update
+  ev.visited = newVal;
+  renderSchedule();
+  // Persist to Supabase
+  const { error } = await db.from('eid_events').update({ visited: newVal }).eq('id', id);
+  if (error) {
+    ev.visited = !newVal; // revert
+    renderSchedule();
+    showToast('❌ Could not save');
+  } else {
+    showToast(newVal ? '✅ Marked as visited!' : '↩️ Marked as not visited');
+  }
+}
+
+// ─── EID DATE SETTING ────────────────────────────────────────────────────────
+const EID_DATE_KEY = 'eid_date_setting';
+
+function getEidDate() {
+  return localStorage.getItem(EID_DATE_KEY) || '2025-03-30';
+}
+
+function saveEidDate() {
+  const val = document.getElementById('settingsEidDate').value;
+  if (val) {
+    localStorage.setItem(EID_DATE_KEY, val);
+    updateEidDateHint();
+    showToast('🌙 Eid date saved!');
+  }
+}
+
+function clearEidDate() {
+  localStorage.removeItem(EID_DATE_KEY);
+  document.getElementById('settingsEidDate').value = '';
+  updateEidDateHint();
+}
+
+function updateEidDateHint() {
+  const val = getEidDate();
+  const hint = document.getElementById('eidDateHint');
+  if (!hint) return;
+  if (val) {
+    const label = new Date(val + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    hint.textContent = `"Eid" dates will resolve to ${label}`;
+  } else {
+    hint.textContent = 'No Eid date set — "Eid" dates will be left blank';
+  }
+}
+
+// ─── SETTINGS MODAL ──────────────────────────────────────────────────────────
+function openSettings() {
+  // Populate Eid date field
+  const savedDate = localStorage.getItem(EID_DATE_KEY) || '';
+  document.getElementById('settingsEidDate').value = savedDate;
+  updateEidDateHint();
+
+  // Populate API key status
+  const key = getApiKey();
+  const dot = document.getElementById('settingsKeyDot');
+  const label = document.getElementById('settingsKeyLabel');
+  if (key) {
+    dot.style.background = '#4CAF50';
+    label.textContent = key.slice(0,14) + '••••••••' + key.slice(-4);
+  } else {
+    dot.style.background = '#E05A5A';
+    label.textContent = 'No API key saved';
+  }
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function saveApiKeyFromSettings() {
+  const input = document.getElementById('settingsApiInput');
+  const key = input.value.trim();
+  if (!key) { showToast('⚠️ Please enter your API key'); return; }
+  if (!key.startsWith('sk-ant-')) { showToast('⚠️ Keys start with sk-ant-'); return; }
+  localStorage.setItem(API_KEY_STORAGE, key);
+  input.value = '';
+  updateApiUi();
+  openSettings(); // refresh the display
+  showToast('🔑 API key saved!');
+}
+
+document.getElementById('settingsModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('settingsModal')) closeSettings();
+});
 
 // ─── MAPS & LIGHTBOX ─────────────────────────────────────────────────────────
 function openMaps(address) {
@@ -2344,6 +2717,7 @@ function calcRoute() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 updateApiUi();
+updateEidDateHint();
 loadEvents().then(() => {
   subscribeRealtime();
   // Auto-build map if there are events with addresses
