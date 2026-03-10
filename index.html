@@ -6,6 +6,8 @@
 <title>Eid Open Homes — Family Scheduler</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --gold: #C9A84C;
@@ -750,6 +752,246 @@
     background: currentColor;
   }
 
+
+  /* ── MAP SECTION ──────────────────────────────────────────────── */
+  .map-section {
+    margin-bottom: 2rem;
+    animation: slideUp 0.5s ease;
+  }
+
+  .map-card {
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(201,168,76,0.2);
+    overflow: hidden;
+  }
+
+  .map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--cream-dark);
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .map-header h2 {
+    font-family: 'Amiri', serif;
+    font-size: 1.5rem;
+    color: var(--teal-dark);
+  }
+
+  .map-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+  .map-btn {
+    background: var(--teal);
+    color: var(--white);
+    border: none;
+    padding: 0.5rem 1.1rem;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .map-btn:hover { background: var(--teal-dark); transform: translateY(-1px); }
+
+  .map-btn.secondary {
+    background: transparent;
+    color: var(--teal);
+    border: 1.5px solid var(--teal);
+  }
+
+  .map-btn.secondary:hover { background: var(--teal); color: var(--white); }
+
+  .map-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  #mapContainer {
+    height: 420px;
+    width: 100%;
+    position: relative;
+  }
+
+  .map-empty {
+    height: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    background: var(--cream);
+    gap: 0.5rem;
+  }
+
+  .map-empty-icon { font-size: 2.5rem; }
+
+  .map-empty p { font-size: 0.9rem; }
+
+  .route-panel {
+    padding: 1rem 1.5rem;
+    background: var(--cream);
+    border-top: 1px solid var(--cream-dark);
+    display: none;
+  }
+
+  .route-panel.visible { display: block; }
+
+  .route-panel-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--teal);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .route-stops {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .route-stop {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--white);
+    border: 1.5px solid var(--cream-dark);
+    border-radius: 50px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    color: var(--teal-dark);
+    font-weight: 500;
+  }
+
+  .route-stop-num {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--teal);
+    color: var(--white);
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .route-arrow {
+    color: var(--gold);
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .route-gmaps-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: var(--teal-dark);
+    border: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .route-gmaps-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(201,168,76,0.4); }
+
+  .geocoding-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Custom Leaflet marker styles */
+  .custom-marker {
+    background: var(--teal);
+    border: 3px solid var(--white);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .custom-marker-inner {
+    transform: rotate(45deg);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+
+  /* ── DAY TABS ──────────────────────────────────────────────────── */
+  #dayTabs {
+    border-bottom: 1px solid var(--cream-dark);
+    padding: 0.6rem 1rem 0;
+    background: var(--cream);
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    overflow-x: auto;
+  }
+
+  .day-tab {
+    padding: 0.5rem 1.1rem;
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .day-tab:hover { color: var(--teal); background: rgba(26,92,107,0.05); }
+
+  .day-tab.active {
+    color: var(--teal-dark);
+    border-bottom-color: var(--gold);
+    background: var(--white);
+  }
+
+  .day-tab .tab-count {
+    display: inline-block;
+    background: var(--teal);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 50px;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+  }
+
+  .day-tab.active .tab-count { background: var(--gold); color: var(--teal-dark); }
+
 </style>
 </head>
 <body>
@@ -836,6 +1078,38 @@
           <button class="btn-primary" id="addToScheduleBtn" onclick="addToSchedule()">Save to Family Schedule ✓</button>
           <button class="btn-secondary" onclick="cancelPreview()">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP SECTION -->
+  <div class="map-section" id="mapSection">
+    <div class="map-card">
+      <div class="map-header">
+        <h2>🗺️ Visit Map & Route</h2>
+        <div class="map-controls">
+          <div class="geocoding-status" id="geocodingStatus" style="display:none;">
+            <div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>
+            <span id="geocodingMsg">Locating addresses…</span>
+          </div>
+          <button class="map-btn secondary" id="refreshMapBtn" onclick="buildMap(true)" title="Re-geocode all addresses">↻ Refresh</button>
+          <button class="map-btn" id="routeBtn" onclick="calcRoute()" disabled>✦ Best Route</button>
+        </div>
+      </div>
+      <!-- DAY TABS -->
+      <div id="dayTabs" style="display:none; border-bottom:1px solid var(--cream-dark); padding: 0 1rem; background: var(--cream); display:flex; gap:0.25rem; flex-wrap:wrap; overflow-x:auto;"></div>
+      <div id="mapContainer">
+        <div class="map-empty" id="mapEmpty">
+          <div class="map-empty-icon">🕌</div>
+          <p>Add visits with addresses to see them on the map</p>
+        </div>
+      </div>
+      <div class="route-panel" id="routePanel">
+        <div class="route-panel-title">⚡ Most Efficient Route — <span id="routeDayLabel"></span></div>
+        <div class="route-stops" id="routeStops"></div>
+        <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank">
+          🗺️ Open in Google Maps
+        </a>
       </div>
     </div>
   </div>
@@ -1276,6 +1550,9 @@ function renderSchedule() {
   const list = document.getElementById('scheduleList');
   const sorted = getSorted();
   document.getElementById('eventCount').textContent = `${events.length} visit${events.length !== 1 ? 's' : ''}`;
+  // If map is already initialised, enable/disable the route button based on events
+  const routeBtn = document.getElementById('routeBtn');
+  if (routeBtn) routeBtn.disabled = geocodedEvents.length < 2;
 
   if (!sorted.length) {
     list.innerHTML = `
@@ -1403,9 +1680,306 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
 }
 
+
+// ─── MAP & ROUTING ─────────────────────────────────────────────────────────────
+let leafletMap = null;
+let mapMarkers = [];
+let geocodedEvents = [];   // ALL geocoded events across all days
+let geocodeCache = {};     // address -> {lat, lng}  (persists across tab switches)
+let routePolyline = null;
+let activeDay = null;      // currently selected date string (YYYY-MM-DD) or 'all'
+
+// ── Map init ─────────────────────────────────────────────────────────────────
+function initMap() {
+  if (leafletMap) return;
+  document.getElementById('mapEmpty').style.display = 'none';
+  leafletMap = L.map('mapContainer', {
+    center: [-36.8509, 174.7645],
+    zoom: 11,
+    zoomControl: true,
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+}
+
+// ── Geocode (with cache) ──────────────────────────────────────────────────────
+async function geocodeAddress(address) {
+  if (!address) return null;
+  const key = address.trim().toLowerCase();
+  if (geocodeCache[key]) return geocodeCache[key];
+  try {
+    const q = encodeURIComponent(address + ', New Zealand');
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`, {
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'EidSchedulerApp/1.0' }
+    });
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      geocodeCache[key] = result;
+      return result;
+    }
+  } catch(e) { console.warn('Geocode failed:', address, e); }
+  return null;
+}
+
+// ── Custom marker icon ────────────────────────────────────────────────────────
+function makeMarkerIcon(number, color = '#1A5C6B') {
+  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 0 C7.163 0 0 7.163 0 16 C0 24 16 40 16 40 C16 40 32 24 32 16 C32 7.163 24.837 0 16 0Z" fill="${color}" stroke="white" stroke-width="2"/>
+    <text x="16" y="20" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="DM Sans,sans-serif" font-size="12" font-weight="700">${number}</text>
+  </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40] });
+}
+
+// ── Build day tabs ────────────────────────────────────────────────────────────
+function buildDayTabs(eventsWithGeo) {
+  const tabsEl = document.getElementById('dayTabs');
+
+  // Collect unique dates that have geocoded events
+  const dates = [...new Set(eventsWithGeo.map(e => e.event.date || 'undated'))].sort();
+
+  if (dates.length === 0) { tabsEl.style.display = 'none'; return; }
+  tabsEl.style.display = 'flex';
+
+  // If no active day set, pick first
+  if (!activeDay || !dates.includes(activeDay)) {
+    activeDay = dates[0];
+  }
+
+  const tabs = dates.length > 1 ? ['all', ...dates] : dates;
+
+  tabsEl.innerHTML = tabs.map(d => {
+    const count = d === 'all'
+      ? eventsWithGeo.length
+      : eventsWithGeo.filter(e => (e.event.date || 'undated') === d).length;
+
+    const label = d === 'all'
+      ? 'All Days'
+      : d === 'undated'
+      ? 'No Date'
+      : new Date(d + 'T12:00:00').toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    const isActive = d === activeDay;
+    return `<button class="day-tab ${isActive ? 'active' : ''}" onclick="switchDay('${d}')">${label}<span class="tab-count">${count}</span></button>`;
+  }).join('');
+}
+
+// ── Switch to a day tab ───────────────────────────────────────────────────────
+function switchDay(day) {
+  activeDay = day;
+
+  // Update tab active states
+  document.querySelectorAll('.day-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === '' || btn.onclick.toString().includes(`'${day}'`));
+  });
+  // Re-render tabs cleanly
+  buildDayTabs(geocodedEvents);
+
+  // Clear route
+  if (routePolyline) { routePolyline.remove(); routePolyline = null; }
+  document.getElementById('routePanel').classList.remove('visible');
+
+  // Show filtered markers
+  showMarkersForDay(day);
+}
+
+// ── Show markers for a given day ──────────────────────────────────────────────
+function showMarkersForDay(day) {
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+
+  const filtered = day === 'all'
+    ? geocodedEvents
+    : geocodedEvents.filter(e => (e.event.date || 'undated') === day);
+
+  const bounds = [];
+  filtered.forEach((p, i) => {
+    const ev = p.event;
+    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
+    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
+    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i + 1, '#1A5C6B') }).addTo(leafletMap);
+    marker.bindPopup(`
+      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
+        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
+        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📍 ${escHtml(ev.address)}</div>
+        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
+        ${ev.notes ? `<div style="font-size:0.78rem;color:#6B6B6B;margin-top:0.3rem;">📝 ${escHtml(ev.notes)}</div>` : ''}
+      </div>
+    `, { maxWidth: 260 });
+    mapMarkers.push(marker);
+    bounds.push([p.lat, p.lng]);
+  });
+
+  if (bounds.length > 0) leafletMap.fitBounds(bounds, { padding: [50, 50] });
+
+  const routeBtn = document.getElementById('routeBtn');
+  routeBtn.disabled = filtered.length < 2;
+}
+
+// ── Main buildMap function ────────────────────────────────────────────────────
+async function buildMap(forceRefresh = false) {
+  const withAddress = events.filter(e => e.address && e.address.trim());
+  if (!withAddress.length) {
+    showToast('⚠️ No visits have addresses yet');
+    return;
+  }
+
+  if (forceRefresh) geocodeCache = {}; // clear cache on manual refresh
+
+  const statusEl = document.getElementById('geocodingStatus');
+  const msgEl = document.getElementById('geocodingMsg');
+  const routeBtn = document.getElementById('routeBtn');
+  const refreshBtn = document.getElementById('refreshMapBtn');
+  statusEl.style.display = 'flex';
+  routeBtn.disabled = true;
+  refreshBtn.disabled = true;
+
+  initMap();
+
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  geocodedEvents = [];
+  if (routePolyline) { routePolyline.remove(); routePolyline = null; }
+  document.getElementById('routePanel').classList.remove('visible');
+
+  // Geocode all addresses (uses cache automatically)
+  let geocoded = 0;
+  for (let i = 0; i < withAddress.length; i++) {
+    const ev = withAddress[i];
+    const cacheKey = ev.address.trim().toLowerCase();
+    const fromCache = !!geocodeCache[cacheKey];
+
+    msgEl.textContent = `Locating ${i+1} of ${withAddress.length}: ${ev.host}…`;
+    const geo = await geocodeAddress(ev.address);
+
+    // Only delay if we actually hit the API (not cached)
+    if (!fromCache) await new Promise(r => setTimeout(r, 1100));
+
+    if (geo) {
+      geocodedEvents.push({ event: ev, lat: geo.lat, lng: geo.lng });
+      geocoded++;
+    }
+  }
+
+  statusEl.style.display = 'none';
+  refreshBtn.disabled = false;
+
+  if (geocodedEvents.length === 0) {
+    showToast('❌ Could not locate any addresses');
+    return;
+  }
+
+  // Build day tabs and show first day
+  buildDayTabs(geocodedEvents);
+  showMarkersForDay(activeDay);
+
+  showToast(`🗺️ ${geocoded} visit${geocoded !== 1 ? 's' : ''} mapped across ${[...new Set(geocodedEvents.map(e => e.event.date||'undated'))].length} day(s)`);
+}
+
+// ── Nearest-neighbour TSP ─────────────────────────────────────────────────────
+function nearestNeighbourRoute(points) {
+  if (points.length <= 1) return points;
+  const sorted = [...points].sort((a, b) =>
+    ((a.event.date||'') + (a.event.start||'')).localeCompare((b.event.date||'') + (b.event.start||''))
+  );
+  const visited = new Set([0]);
+  const route = [sorted[0]];
+  let current = 0;
+
+  while (route.length < sorted.length) {
+    let nearest = -1, minDist = Infinity;
+    for (let i = 0; i < sorted.length; i++) {
+      if (visited.has(i)) continue;
+      const d = haversine(sorted[current].lat, sorted[current].lng, sorted[i].lat, sorted[i].lng);
+      if (d < minDist) { minDist = d; nearest = i; }
+    }
+    visited.add(nearest);
+    route.push(sorted[nearest]);
+    current = nearest;
+  }
+  return route;
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ── Calculate route for active day ───────────────────────────────────────────
+function calcRoute() {
+  const pool = activeDay === 'all'
+    ? geocodedEvents
+    : geocodedEvents.filter(e => (e.event.date || 'undated') === activeDay);
+
+  if (pool.length < 2) return;
+
+  const route = nearestNeighbourRoute(pool);
+
+  // Draw polyline
+  if (routePolyline) routePolyline.remove();
+  const latlngs = route.map(p => [p.lat, p.lng]);
+  routePolyline = L.polyline(latlngs, {
+    color: '#C9A84C', weight: 3.5, opacity: 0.9, dashArray: '8, 6',
+  }).addTo(leafletMap);
+
+  // Renumber markers in route order
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  route.forEach((p, i) => {
+    const ev = p.event;
+    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
+    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
+    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i+1, i === 0 ? '#2A8A9F' : '#1A5C6B') }).addTo(leafletMap);
+    marker.bindPopup(`
+      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
+        <div style="font-size:0.7rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem;">Stop ${i+1}${i===0?' · Start':''}</div>
+        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
+        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📍 ${escHtml(ev.address)}</div>
+        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
+      </div>
+    `, { maxWidth: 260 });
+    mapMarkers.push(marker);
+  });
+
+  leafletMap.fitBounds(latlngs, { padding: [40, 40] });
+
+  // Route stop list
+  const dayLabel = activeDay === 'all' ? 'All Days' : activeDay === 'undated' ? 'No Date'
+    : new Date(activeDay + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('routeDayLabel').textContent = dayLabel;
+
+  document.getElementById('routeStops').innerHTML = route.map((p, i) => `
+    ${i > 0 ? '<span class="route-arrow">→</span>' : ''}
+    <div class="route-stop">
+      <div class="route-stop-num">${i+1}</div>
+      ${escHtml(p.event.host)}
+    </div>
+  `).join('');
+
+  // Google Maps URL
+  const origin = encodeURIComponent(route[0].event.address);
+  const dest = encodeURIComponent(route[route.length-1].event.address);
+  const waypoints = route.slice(1,-1).map(p => encodeURIComponent(p.event.address)).join('|');
+  document.getElementById('routeGmapsLink').href =
+    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
+
+  document.getElementById('routePanel').classList.add('visible');
+  showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 updateApiUi();
-loadEvents().then(() => subscribeRealtime());
+loadEvents().then(() => {
+  subscribeRealtime();
+  // Auto-build map if there are events with addresses
+  setTimeout(() => {
+    if (events.some(e => e.address)) buildMap();
+  }, 500);
+});
 </script>
 </body>
 </html>
