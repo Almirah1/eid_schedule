@@ -627,6 +627,129 @@
     object-fit: contain;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   }
+
+  /* ── API KEY BANNER ─────────────────────────────────────────── */
+  .api-banner {
+    background: linear-gradient(135deg, #fff8e8, #fffdf5);
+    border: 1.5px solid rgba(201,168,76,0.35);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    animation: slideUp 0.4s ease;
+  }
+
+  .api-banner.hidden { display: none; }
+
+  .api-banner-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+  .api-banner-text { flex: 1; min-width: 180px; }
+
+  .api-banner-text strong {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--teal-dark);
+    margin-bottom: 0.15rem;
+  }
+
+  .api-banner-text span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .api-banner-text a {
+    color: var(--teal);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .api-banner-text a:hover { text-decoration: underline; }
+
+  .api-input-row {
+    display: flex;
+    gap: 0.5rem;
+    flex: 2;
+    min-width: 240px;
+  }
+
+  .api-input-row input {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1.5px solid var(--cream-dark);
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--white);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+  }
+
+  .api-input-row input:focus { border-color: var(--gold); }
+
+  .api-save-btn {
+    background: var(--teal);
+    color: var(--white);
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .api-save-btn:hover { background: var(--teal-dark); transform: translateY(-1px); }
+
+  /* Settings cog in header */
+  .header-settings {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .header-settings:hover { background: rgba(255,255,255,0.22); color: var(--white); }
+
+  /* API key status pill in upload section */
+  .api-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    margin-bottom: 1rem;
+  }
+
+  .api-status-pill.ok { background: rgba(76,175,80,0.12); color: #2E7D32; }
+  .api-status-pill.missing { background: rgba(224,90,90,0.12); color: #C0392B; }
+
+  .api-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
 </style>
 </head>
 <body>
@@ -642,12 +765,27 @@
       <span id="syncStatus">Connecting to family schedule…</span>
     </div>
   </div>
+  <button class="header-settings" onclick="toggleApiBanner()" title="API Key Settings">⚙️</button>
 </header>
 
 <main>
+  <!-- API KEY BANNER -->
+  <div class="api-banner" id="apiBanner">
+    <div class="api-banner-icon">🔑</div>
+    <div class="api-banner-text">
+      <strong>Claude API Key Required</strong>
+      <span>Needed for AI extraction. Get yours at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> — stored only in your browser.</span>
+    </div>
+    <div class="api-input-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off" onkeydown="if(event.key==='Enter') saveApiKey()">
+      <button class="api-save-btn" onclick="saveApiKey()">Save Key</button>
+    </div>
+  </div>
+
   <!-- UPLOAD -->
   <div class="upload-section">
     <div class="section-label">📸 Add Invitation</div>
+    <div id="apiStatusPill" class="api-status-pill missing"><span class="api-status-dot"></span> API key required for extraction</div>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept="image/*">
       <div class="drop-icon">🖼️</div>
@@ -760,6 +898,67 @@
 const SUPABASE_URL = 'https://edyuizgeyqrnkijvvufx.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeXVpemdleXFybmtpanZ2dWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MjkxMTcsImV4cCI6MjA4NjQwNTExN30.8zVQP7LbZaj6DOu7KL_tJSjvrDTpHxjTDWL7fMZeaLk';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── API KEY MANAGEMENT ──────────────────────────────────────────────────────
+const API_KEY_STORAGE = 'eid_claude_api_key';
+
+function getApiKey() {
+  return localStorage.getItem(API_KEY_STORAGE) || '';
+}
+
+function saveApiKey() {
+  const input = document.getElementById('apiKeyInput');
+  const key = input.value.trim();
+  if (!key) { showToast('⚠️ Please enter your API key'); return; }
+  if (!key.startsWith('sk-ant-')) {
+    showToast('⚠️ That doesn't look like a Claude API key (should start with sk-ant-)');
+    return;
+  }
+  localStorage.setItem(API_KEY_STORAGE, key);
+  input.value = ''; // clear from DOM for security
+  updateApiUi();
+  showToast('🔑 API key saved! Ready to extract invitations.');
+}
+
+function clearApiKey() {
+  localStorage.removeItem(API_KEY_STORAGE);
+  updateApiUi();
+  showToast('🗑️ API key removed');
+}
+
+function toggleApiBanner() {
+  const banner = document.getElementById('apiBanner');
+  banner.classList.toggle('hidden');
+  if (!banner.classList.contains('hidden')) {
+    document.getElementById('apiKeyInput').focus();
+  }
+}
+
+function updateApiUi() {
+  const key = getApiKey();
+  const banner = document.getElementById('apiBanner');
+
+  if (key) {
+    // Key is set — hide banner, show masked key
+    banner.classList.add('hidden');
+    const masked = key.slice(0, 14) + '••••••••••••' + key.slice(-4);
+    document.getElementById('apiKeyInput').placeholder = masked;
+    // Update drop zone label
+    const pill = document.getElementById('apiStatusPill');
+    if (pill) {
+      pill.className = 'api-status-pill ok';
+      pill.innerHTML = '<span class="api-status-dot"></span> AI extraction ready';
+    }
+  } else {
+    // No key — show banner
+    banner.classList.remove('hidden');
+    const pill = document.getElementById('apiStatusPill');
+    if (pill) {
+      pill.className = 'api-status-pill missing';
+      pill.innerHTML = '<span class="api-status-dot"></span> API key required for extraction';
+    }
+  }
+}
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let events = [];
@@ -888,9 +1087,20 @@ async function extractWithAI(base64DataUrl) {
     if (!matches) throw new Error('Invalid image');
     const [, mediaType, base64Data] = matches;
 
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      showToast('🔑 Please add your Claude API key first (⚙️ button)');
+      document.getElementById('apiBanner').classList.remove('hidden');
+      document.getElementById('apiKeyInput').focus();
+      indicator.style.display = 'none';
+      addBtn.disabled = false;
+      document.querySelector('.extraction-panel').classList.remove('extracting');
+      return;
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1500,
@@ -1194,6 +1404,7 @@ function showToast(msg) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+updateApiUi();
 loadEvents().then(() => subscribeRealtime());
 </script>
 </body>
