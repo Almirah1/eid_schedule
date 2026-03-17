@@ -2714,6 +2714,18 @@ function travelTimeMins(p1, p2) {
   return (haversine(p1.lat, p1.lng, p2.lat, p2.lng) / AVG_SPEED_KMH) * 60;
 }
 
+// ── Suburb + proximity clustering ────────────────────────────────────────────
+// Extract the suburb from an address string
+function extractSuburb(addr) {
+  if (!addr) return '';
+  const parts = addr.replace(/^\d+\//, '').split(',').map(s => s.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i].replace(/\b\d{4}\b/, '').trim();
+    if (p.length > 2) return p.toLowerCase();
+  }
+  return addr.toLowerCase();
+}
+
 function nearestNeighbourRoute(points) {
   if (points.length <= 1) return points;
 
@@ -2741,11 +2753,8 @@ function nearestNeighbourRoute(points) {
     return out;
   };
 
-  // Departure time from settings — this is our true start time
   const departMins = timeToMins(getDepartureTime()) || 0;
 
-  // Score a full ordering from a given lat/lng start point and time.
-  // Lower is better: minimise distance + penalise missing windows + penalise lateness.
   const scoreOrder = (order, fromLat, fromLng) => {
     let cost = 0, lat = fromLat, lng = fromLng, now = departMins;
     for (const p of order) {
@@ -2755,21 +2764,17 @@ function nearestNeighbourRoute(points) {
       const end     = endOf(p);
       const dist    = haversine(lat, lng, p.lat, p.lng);
       cost += dist
-            + Math.max(0, arrival - end) * 200    // missed window — very bad
-            + Math.max(0, arrival - start) * 4    // late to start — bad
-            + Math.max(0, start - arrival - 60) * 0.1; // waiting >60 min — slight nudge
+            + Math.max(0, arrival - end) * 200
+            + Math.max(0, arrival - start) * 4
+            + Math.max(0, start - arrival - 60) * 0.1;
       now = Math.max(arrival, start) + MIN_VISIT_MINS;
       lat = p.lat; lng = p.lng;
     }
     return cost;
   };
 
-  // Optimise a group of stops that all have overlapping time windows.
-  // Exhaustive for ≤6 stops, randomised search for larger groups.
-  // Does NOT pin any stop as first — departure time determines what's reachable.
   const optimiseGroup = (group, fromLat, fromLng) => {
     if (group.length === 1) return group;
-
     if (group.length <= 6) {
       const permute = a => a.length <= 1 ? [a] :
         a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
@@ -2780,8 +2785,6 @@ function nearestNeighbourRoute(points) {
       }
       return best;
     }
-
-    // Randomised search — try all stops as potential first stop too
     let best = [...group], bestCost = scoreOrder(best, fromLat, fromLng);
     for (let trial = 0; trial < 3000; trial++) {
       const candidate = [...group];
@@ -2795,39 +2798,94 @@ function nearestNeighbourRoute(points) {
     return best;
   };
 
-  const timed    = [...points].filter(p => p.event.start)
-                              .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
+  const timed    = [...points].filter(p => p.event.start);
   const flexPool = [...points].filter(p => !p.event.start);
 
   if (timed.length === 0) return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
 
-  // Group stops into overlap clusters — if A's window is still open when B starts,
-  // they're in the same cluster and can be visited in any order.
-  const clusters = [];
-  let cur = [timed[0]], curWindowEnd = endOf(timed[0]);
-  for (let i = 1; i < timed.length; i++) {
-    const ns = timeToMins(timed[i].event.start);
-    if (ns <= curWindowEnd) {
-      cur.push(timed[i]);
-      curWindowEnd = Math.max(curWindowEnd, endOf(timed[i]));
-    } else {
-      clusters.push(cur);
-      cur = [timed[i]]; curWindowEnd = endOf(timed[i]);
+  // ── Suburb + proximity clustering using Union-Find ────────────────────────
+  // Two stops belong to the same cluster if:
+  //   (same suburb OR within 3km of each other) AND their time windows overlap
+  const SUBURB_PROX_KM = 5;
+  const parent = timed.map((_, i) => i);
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { parent[find(a)] = find(b); };
+
+  for (let i = 0; i < timed.length; i++) {
+    for (let j = i + 1; j < timed.length; j++) {
+      const a = timed[i], b = timed[j];
+      const subA = extractSuburb(a.event.address), subB = extractSuburb(b.event.address);
+      const sameSuburb = subA && subB && subA === subB;
+      const nearEnough = haversine(a.lat, a.lng, b.lat, b.lng) <= SUBURB_PROX_KM;
+      const timeOverlap = timeToMins(a.event.start) < endOf(b) && timeToMins(b.event.start) < endOf(a);
+      if ((sameSuburb || nearEnough) && timeOverlap) union(i, j);
     }
   }
-  clusters.push(cur);
 
-  // Build final route cluster by cluster
+  // Build clusters from union-find groups
+  const clusterMap = {};
+  timed.forEach((p, i) => {
+    const root = find(i);
+    if (!clusterMap[root]) clusterMap[root] = [];
+    clusterMap[root].push(p);
+  });
+
+  // Sort clusters by their earliest start time
+  const clusters = Object.values(clusterMap).sort((a, b) =>
+    Math.min(...a.map(p => timeToMins(p.event.start) || 0)) -
+    Math.min(...b.map(p => timeToMins(p.event.start) || 0))
+  );
+
+  // ── Order clusters by travel efficiency ──────────────────────────────────
+  // For each cluster, compute its centroid, then order clusters by
+  // nearest-centroid from current position (respecting earliest start time)
+  const centroid = cluster => ({
+    lat: cluster.reduce((s, p) => s + p.lat, 0) / cluster.length,
+    lng: cluster.reduce((s, p) => s + p.lng, 0) / cluster.length,
+    earliest: Math.min(...cluster.map(p => timeToMins(p.event.start) || 0))
+  });
+
+  // Greedily order clusters: from current position, pick nearest cluster
+  // whose earliest start is reachable (within 2hrs of current time)
+  const orderedClusters = [];
+  const remainingClusters = [...clusters];
+  let lat = remainingClusters[0][0].lat, lng = remainingClusters[0][0].lng;
+  let now = departMins;
+
+  while (remainingClusters.length) {
+    // Candidates: clusters reachable within 2hrs from now
+    let candidates = remainingClusters.filter(c => centroid(c).earliest <= now + 120);
+    if (candidates.length === 0) {
+      // Jump to earliest remaining cluster
+      remainingClusters.sort((a,b) => centroid(a).earliest - centroid(b).earliest);
+      candidates = [remainingClusters[0]];
+    }
+    // Pick nearest centroid among candidates
+    let best = candidates[0], bestDist = Infinity;
+    candidates.forEach(c => {
+      const cen = centroid(c);
+      const d = haversine(lat, lng, cen.lat, cen.lng);
+      if (d < bestDist) { bestDist = d; best = c; }
+    });
+    orderedClusters.push(best);
+    remainingClusters.splice(remainingClusters.indexOf(best), 1);
+    const cen = centroid(best);
+    now = Math.max(now + (haversine(lat, lng, cen.lat, cen.lng) / AVG_SPEED_KMH) * 60, cen.earliest) + MIN_VISIT_MINS * best.length;
+    lat = cen.lat; lng = cen.lng;
+  }
+
+  // ── Build final route ─────────────────────────────────────────────────────
   const route = [];
-  for (let ci = 0; ci < clusters.length; ci++) {
-    const fromLat = route.length ? route[route.length-1].lat : clusters[0][0].lat;
-    const fromLng = route.length ? route[route.length-1].lng : clusters[0][0].lng;
-    route.push(...optimiseGroup(clusters[ci], fromLat, fromLng));
+  for (const cluster of orderedClusters) {
+    const fromLat = route.length ? route[route.length-1].lat : orderedClusters[0][0].lat;
+    const fromLng = route.length ? route[route.length-1].lng : orderedClusters[0][0].lng;
+    route.push(...optimiseGroup(cluster, fromLat, fromLng));
 
-    // Fill 2hr+ gaps between clusters with nearest untimed stop
-    if (ci < clusters.length - 1 && flexPool.length > 0) {
+    // Fill 2hr+ gaps with nearest untimed stop
+    if (flexPool.length > 0) {
       const lastStart = timeToMins(route[route.length-1].event.start) || 0;
-      const nextStart = timeToMins(clusters[ci+1][0].event.start) || 0;
+      const nextCluster = orderedClusters[orderedClusters.indexOf(cluster) + 1];
+      const nextStart = nextCluster ? Math.min(...nextCluster.map(p => timeToMins(p.event.start) || 0)) : Infinity;
       if (nextStart - lastStart >= GAP_THRESHOLD_MINS) {
         const last = route[route.length-1];
         let bi = 0, bd = Infinity;
