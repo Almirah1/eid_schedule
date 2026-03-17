@@ -2833,6 +2833,7 @@ function nearestNeighbourRoute(points) {
 
   const departMins = timeToMins(getDepartureTime()) || 0;
 
+  const homeGeoScore = getHomeGeocode();
   const scoreOrder = (order, fromLat, fromLng) => {
     let cost = 0, lat = fromLat, lng = fromLng, now = departMins;
     for (const p of order) {
@@ -2840,14 +2841,15 @@ function nearestNeighbourRoute(points) {
       const arrival = now + trav;
       const end     = endOf(p);
       const dist    = haversine(lat, lng, p.lat, p.lng);
-      // Only penalise arriving AFTER closing time — open homes have a window,
-      // arriving any time before close is fine. Never penalise arriving "late to start".
       cost += dist
             + Math.max(0, arrival - end) * 500;  // missed window — very bad
-      // Advance time: if we arrive before the open time, we wait until it opens
       const openTime = timeToMins(p.event.start) || arrival;
       now = Math.max(arrival, openTime) + MIN_VISIT_MINS;
       lat = p.lat; lng = p.lng;
+    }
+    // Add cost of returning home at the end
+    if (homeGeoScore) {
+      cost += travelTimeMins({ lat, lng }, homeGeoScore);
     }
     return cost;
   };
@@ -3065,7 +3067,40 @@ async function calcRoute() {
     lat = p.lat; lng = p.lng;
   });
 
-  document.getElementById('routeStops').innerHTML = route.map((p, i) => {
+  // Add home as final display stop if geocoded
+  const homeGeoDisplay = getHomeGeocode();
+  const homeAddrDisplay = getHomeAddress();
+  const displayRoute = homeGeoDisplay ? [...route, { event: { host: '🏠 Home', address: homeAddrDisplay }, lat: homeGeoDisplay.lat, lng: homeGeoDisplay.lng, isHome: true }] : route;
+
+  // Extend arrivals to include home
+  if (homeGeoDisplay) {
+    const lastStop = route[route.length - 1];
+    const lastArr = arrivals[arrivals.length - 1];
+    const lastDepMins = (() => {
+      const p = lastStop;
+      const lastArrMins = depMins + route.slice(0, route.length).reduce((acc, p2, i) => {
+        return acc; // already calculated in arrivals
+      }, 0);
+      // Use the last now value — approximate from last arrival
+      const lastArrival = (() => {
+        let n = depMins, la = homeGeoRoute ? homeGeoRoute.lat : route[0].lat, lo = homeGeoRoute ? homeGeoRoute.lng : route[0].lng;
+        for (const rp of route) {
+          const t = (haversine(la, lo, rp.lat, rp.lng) / AVG_SPEED_KMH) * 60;
+          const arr = n + t;
+          const open = rp.event.start ? rp.event.start.split(':').map(Number).reduce((h,m)=>h*60+m,0) : arr;
+          n = Math.max(arr, open) + MIN_VISIT_MINS;
+          la = rp.lat; lo = rp.lng;
+        }
+        return n;
+      })();
+      const homeTrav = (haversine(lastStop.lat, lastStop.lng, homeGeoDisplay.lat, homeGeoDisplay.lng) / AVG_SPEED_KMH) * 60;
+      const homeArrival = lastArrival + homeTrav;
+      const homeArrH = Math.floor(homeArrival/60), homeArrM = Math.round(homeArrival%60);
+      arrivals.push({ arrStr: homeArrH + ':' + String(homeArrM).padStart(2,'0'), isMissed: false, isLate: false, isTight: false });
+    })();
+  }
+
+  document.getElementById('routeStops').innerHTML = displayRoute.map((p, i) => {
     const { arrStr, isMissed, isLate, isTight } = arrivals[i];
     const flag = isMissed ? ' <span style="color:#C0392B;font-size:0.65rem;">⛔ missed</span>'
                : isTight  ? ' <span style="color:#B8700A;font-size:0.65rem;">⏰ tight</span>'
@@ -3081,9 +3116,12 @@ async function calcRoute() {
   }).join('');
 
   // Google Maps URL
-  const origin = encodeURIComponent(route[0].event.address);
-  const dest = encodeURIComponent(route[route.length-1].event.address);
-  const waypoints = route.slice(1,-1).map(p => encodeURIComponent(p.event.address)).join('|');
+  const homeAddr = getHomeAddress();
+  const origin = encodeURIComponent(homeAddr || route[0].event.address);
+  const dest = encodeURIComponent(homeAddr || route[route.length-1].event.address);
+  const allStops = homeAddr ? route : route.slice(1);
+  const waypointStops = homeAddr ? route : route.slice(1,-1);
+  const waypoints = waypointStops.map(p => encodeURIComponent(p.event.address)).join('|');
   document.getElementById('routeGmapsLink').href =
     `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
 
