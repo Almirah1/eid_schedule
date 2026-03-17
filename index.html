@@ -1585,6 +1585,13 @@ flex-shrink: 0;
 
 ```
 <div class="settings-section">
+  <h4>🕐 Departure Time</h4>
+  <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">What time are you leaving home on Eid day?</p>
+  <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1.25rem;">
+    <input type="time" id="departureTimeInput" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;" value="12:00">
+    <button class="api-save-btn" onclick="saveDepartureTime()">Save</button>
+  </div>
+
   <h4>🌙 Eid Date</h4>
   <p class="eid-date-hint" style="margin-bottom:0.6rem;">Invitations that say "Eid" or "Eid day" will use this date.</p>
   <div class="eid-date-row">
@@ -2184,6 +2191,17 @@ function renderEventCard(ev) {
         ${ev.notes ? `<div class="meta-item"><span class="meta-icon">📝</span>${escHtml(ev.notes)}</div>` : ''}
       </div>
       ${conflict ? `<div class="conflict-badge">⚠️ Time conflict detected</div>` : ''}
+      ${(() => {
+        if (!ev.end || !ev.start) return '';
+        const dep = getDepartureTime().split(':').map(Number);
+        const depMins = dep[0]*60 + dep[1];
+        const endMins = ev.end.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+        const startMins = ev.start.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+        const endAdj = endMins <= startMins ? endMins + 1440 : endMins;
+        if (depMins >= endAdj) return '<div class="conflict-badge" style="background:rgba(220,50,50,0.1);color:#C0392B;border-color:rgba(220,50,50,0.3)">⛔ Closes before you leave home</div>';
+        if (depMins > startMins && (endAdj - depMins) <= 30) return '<div class="conflict-badge" style="background:rgba(255,165,0,0.12);color:#B8700A;border-color:rgba(255,165,0,0.3)">⏰ Cutting it close — closes soon after you leave</div>';
+        return '';
+      })()}
     </div>
     <div class="event-actions">
       ${ev.image_url ? `<button class="icon-btn" title="View invitation" onclick="openLightbox('${escAttr(ev.image_url)}')">📸</button>` : ''}
@@ -2274,7 +2292,18 @@ async function toggleVisited(id) {
 }
 
 // ─── EID DATE SETTING ────────────────────────────────────────────────────────
-const EID_DATE_KEY = 'eid_date_setting';
+const EID_DATE_KEY       = 'eid_date_setting';
+const DEPARTURE_TIME_KEY = 'eid_departure_time';
+
+function getDepartureTime() {
+  return localStorage.getItem(DEPARTURE_TIME_KEY) || '12:00';
+}
+function saveDepartureTime() {
+  const val = document.getElementById('departureTimeInput').value;
+  if (!val) return;
+  localStorage.setItem(DEPARTURE_TIME_KEY, val);
+  showToast('🕐 Departure time saved!');
+}
 
 function getEidDate() {
   return localStorage.getItem(EID_DATE_KEY) || '2025-03-30';
@@ -2309,6 +2338,8 @@ function updateEidDateHint() {
 
 // ─── SETTINGS MODAL ──────────────────────────────────────────────────────────
 function openSettings() {
+  // Populate departure time
+  document.getElementById('departureTimeInput').value = getDepartureTime();
   // Populate Eid date field
   const savedDate = localStorage.getItem(EID_DATE_KEY) || '';
   document.getElementById('settingsEidDate').value = savedDate;
@@ -2677,7 +2708,7 @@ async function buildMap(forceRefresh = false) {
 // Fill 2hr+ gaps between groups with nearest untimed stops.
 const GAP_THRESHOLD_MINS = 120;
 const AVG_SPEED_KMH      = 30;
-const MIN_VISIT_MINS     = 45; // assumed visit duration if no end time
+const MIN_VISIT_MINS     = 25; // assumed visit duration if no end time
 
 function travelTimeMins(p1, p2) {
   return (haversine(p1.lat, p1.lng, p2.lat, p2.lng) / AVG_SPEED_KMH) * 60;
@@ -2732,16 +2763,65 @@ function nearestNeighbourRoute(points) {
     return cost;
   };
 
-  // Optimise a group by trying all permutations (up to 6 stops)
+  // Score a full ordering: total distance + heavy penalty for missing end time,
+  // lighter penalty for arriving late to start, tiny penalty for waiting >15 min.
+  const departMins = timeToMins(getDepartureTime()) || 0;
+  const scoreOrder = (order, fromLat, fromLng) => {
+    let cost = 0;
+    let lat = fromLat, lng = fromLng;
+    let now = Math.max(departMins, timeToMins(order[0].event.start) || 0);
+    for (const p of order) {
+      const trav    = travelTimeMins({ lat, lng }, p);
+      const arrival = now + trav;
+      const start   = timeToMins(p.event.start) || arrival;
+      const end     = endOf(p);
+      const dist    = haversine(lat, lng, p.lat, p.lng);
+      cost += dist                                        // minimise distance
+            + Math.max(0, arrival - end) * 200           // missed window — very bad
+            + Math.max(0, arrival - start) * 4           // late to start — bad
+            + Math.max(0, start - arrival - 60) * 0.1;  // waiting >60 min is slightly bad, <60 min is fine
+      now = Math.max(arrival, start) + MIN_VISIT_MINS;
+      lat = p.lat; lng = p.lng;
+    }
+    return cost;
+  };
+
+  // Optimise a group: exhaustive for ≤6, randomised search for larger groups.
+  // Randomised search tries 2000 shuffles, always keeping the best feasible order.
   const optimiseGroup = (group, fromLat, fromLng) => {
     if (group.length === 1) return group;
-    if (group.length > 6) return nnOrder(group, fromLat, fromLng);
-    const permute = a => a.length <= 1 ? [a] :
-      a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
-    let best = null, bestCost = Infinity;
-    for (const perm of permute(group)) {
-      const c = scorePerm(perm, fromLat, fromLng);
-      if (c < bestCost) { bestCost = c; best = perm; }
+
+    // Exhaustive permutation search for small groups
+    if (group.length <= 6) {
+      const permute = a => a.length <= 1 ? [a] :
+        a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
+      let best = null, bestCost = Infinity;
+      for (const perm of permute(group)) {
+        const c = scoreOrder(perm, fromLat, fromLng);
+        if (c < bestCost) { bestCost = c; best = perm; }
+      }
+      return best;
+    }
+
+    // Randomised search: shuffle 2000 times, keep best scoring order.
+    // Always pin the earliest-start stop first (it's the only one available at t=0).
+    const earliest = [...group].sort((a,b) =>
+      (timeToMins(a.event.start)||0) - (timeToMins(b.event.start)||0))[0];
+    const rest = group.filter(p => p !== earliest);
+
+    let best = [earliest, ...rest];
+    let bestCost = scoreOrder(best, fromLat, fromLng);
+
+    for (let trial = 0; trial < 2000; trial++) {
+      // Fisher-Yates shuffle of rest
+      const candidate = [...rest];
+      for (let i = candidate.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidate[i], candidate[j]] = [candidate[j], candidate[i]];
+      }
+      const perm = [earliest, ...candidate];
+      const cost = scoreOrder(perm, fromLat, fromLng);
+      if (cost < bestCost) { bestCost = cost; best = perm; }
     }
     return best;
   };
