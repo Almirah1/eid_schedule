@@ -2863,9 +2863,10 @@ function nearestNeighbourRoute(points) {
       now = Math.max(arrival, openTime) + MIN_VISIT_MINS;
       lat = p.lat; lng = p.lng;
     }
-    // Add return-home drive time — same units, fully comparable
+    // Add return-home drive time with a 3x multiplier — we strongly prefer
+    // ending at a stop that's close to home, since everyone is tired by end of day
     if (homeGeoScore) {
-      cost += travelTimeMins({ lat, lng }, homeGeoScore);
+      cost += travelTimeMins({ lat, lng }, homeGeoScore) * 3;
     }
     return cost;
   };
