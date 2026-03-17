@@ -1,0 +1,3224 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>Eid Open Homes — Family Scheduler</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Eid Homes">
+<meta name="theme-color" content="#0D3A45">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --gold-pale: #F5EDD3;
+    --teal: #1A5C6B;
+    --teal-dark: #0D3A45;
+    --teal-light: #2A8A9F;
+    --cream: #FAF6EE;
+    --cream-dark: #F0E8D5;
+    --text: #1C1C1C;
+    --text-muted: #6B6B6B;
+    --white: #FFFFFF;
+    --shadow: 0 4px 24px rgba(26,92,107,0.12);
+    --shadow-lg: 0 12px 48px rgba(26,92,107,0.18);
+  }
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+font-family: ‘DM Sans’, sans-serif;
+background: var(–cream);
+color: var(–text);
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background-image:
+radial-gradient(circle at 20% 20%, rgba(201,168,76,0.08) 0%, transparent 50%),
+radial-gradient(circle at 80% 80%, rgba(26,92,107,0.08) 0%, transparent 50%);
+pointer-events: none;
+z-index: 0;
+}
+
+header {
+background: linear-gradient(135deg, var(–teal-dark) 0%, var(–teal) 60%, var(–teal-light) 100%);
+padding: 1.5rem 2rem 1.75rem;
+text-align: center;
+position: relative;
+overflow: hidden;
+}
+
+header::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background-image: url(“data:image/svg+xml,%3Csvg width=‘60’ height=‘60’ viewBox=‘0 0 60 60’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cg fill=‘none’ fill-rule=‘evenodd’%3E%3Cg fill=’%23C9A84C’ fill-opacity=‘0.08’%3E%3Cpath d=‘M30 0 L35 25 L60 30 L35 35 L30 60 L25 35 L0 30 L25 25Z’/%3E%3C/g%3E%3C/g%3E%3C/svg%3E”);
+pointer-events: none;
+}
+
+.crescent {
+font-size: 3rem;
+margin-bottom: 0.5rem;
+display: block;
+animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+0%, 100% { transform: translateY(0); }
+50% { transform: translateY(-8px); }
+}
+
+header h1 {
+font-family: ‘Amiri’, serif;
+font-size: clamp(1.8rem, 5vw, 3rem);
+color: var(–gold-light);
+letter-spacing: 0.02em;
+line-height: 1.2;
+}
+
+header .subtitle {
+font-size: 0.9rem;
+color: rgba(255,255,255,0.7);
+margin-top: 0.4rem;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+font-weight: 300;
+}
+
+.eid-greeting {
+font-family: ‘Amiri’, serif;
+font-size: 1.1rem;
+color: var(–gold-pale);
+margin-top: 0.3rem;
+font-style: italic;
+}
+
+.sync-bar {
+display: inline-flex;
+align-items: center;
+gap: 0.5rem;
+padding: 0.5rem 1.25rem;
+background: rgba(255,255,255,0.1);
+margin-top: 1rem;
+border-radius: 50px;
+font-size: 0.8rem;
+color: rgba(255,255,255,0.85);
+}
+
+.sync-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+background: #4CAF50;
+flex-shrink: 0;
+transition: background 0.3s;
+}
+
+.sync-dot.syncing { background: var(–gold); animation: pulse 1s ease-in-out infinite; }
+.sync-dot.error { background: #E05A5A; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+main {
+max-width: 960px;
+margin: 0 auto;
+padding: 2rem 1.5rem 4rem;
+position: relative;
+z-index: 1;
+}
+
+.upload-section {
+background: var(–white);
+border-radius: 20px;
+padding: 2rem;
+box-shadow: var(–shadow);
+margin-bottom: 2rem;
+border: 1px solid rgba(201,168,76,0.2);
+animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+from { opacity:0; transform:translateY(20px); }
+to { opacity:1; transform:translateY(0); }
+}
+
+.section-label {
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.15em;
+color: var(–teal);
+font-weight: 600;
+margin-bottom: 1rem;
+}
+
+.drop-zone {
+border: 2.5px dashed rgba(201,168,76,0.5);
+border-radius: 16px;
+padding: 3rem 2rem;
+text-align: center;
+cursor: pointer;
+transition: all 0.3s ease;
+background: var(–gold-pale);
+position: relative;
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+border-color: var(–gold);
+background: rgba(201,168,76,0.12);
+transform: scale(1.01);
+}
+
+.drop-zone input[type=“file”] {
+position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+
+.drop-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+.drop-zone h3 {
+font-family: ‘Amiri’, serif;
+font-size: 1.3rem;
+color: var(–teal-dark);
+margin-bottom: 0.4rem;
+}
+
+.drop-zone p { font-size: 0.875rem; color: var(–text-muted); }
+
+.upload-btn {
+display: inline-block;
+margin-top: 1rem;
+background: var(–teal);
+color: var(–white);
+border: none;
+padding: 0.75rem 2rem;
+border-radius: 50px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.9rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.25s ease;
+letter-spacing: 0.04em;
+}
+
+.upload-btn:hover { background: var(–teal-dark); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(26,92,107,0.3); }
+
+.preview-section {
+display: none;
+background: var(–white);
+border-radius: 20px;
+padding: 2rem;
+box-shadow: var(–shadow);
+margin-bottom: 2rem;
+border: 1px solid rgba(201,168,76,0.2);
+animation: slideUp 0.4s ease;
+}
+
+.preview-section.visible { display: block; }
+
+.preview-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1.5rem;
+align-items: start;
+}
+
+@media (max-width: 600px) { .preview-grid { grid-template-columns: 1fr; } }
+
+.preview-img-wrap {
+border-radius: 12px;
+overflow: hidden;
+border: 2px solid var(–cream-dark);
+}
+
+.preview-img-wrap img {
+width: 100%; height: 220px; object-fit: cover; display: block;
+}
+
+.extraction-panel h3 {
+font-family: ‘Amiri’, serif;
+font-size: 1.2rem;
+color: var(–teal-dark);
+margin-bottom: 1rem;
+}
+
+.field-group { margin-bottom: 1rem; }
+
+.field-group label {
+display: block;
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.1em;
+color: var(–text-muted);
+font-weight: 600;
+margin-bottom: 0.3rem;
+}
+
+.field-group input, .field-group textarea {
+width: 100%;
+padding: 0.6rem 0.9rem;
+border: 1.5px solid var(–cream-dark);
+border-radius: 10px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.9rem;
+color: var(–text);
+background: var(–cream);
+transition: border-color 0.2s;
+outline: none;
+}
+
+.field-group input:focus, .field-group textarea:focus {
+border-color: var(–gold); background: var(–white);
+}
+
+.field-group textarea { resize: vertical; min-height: 60px; }
+
+.processing-indicator {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+padding: 1rem 1.25rem;
+background: linear-gradient(135deg, var(–gold-pale), rgba(201,168,76,0.15));
+border-radius: 12px;
+margin-bottom: 1rem;
+border: 1px solid rgba(201,168,76,0.3);
+}
+
+@keyframes shimmer {
+0% { background-position: -600px 0; }
+100% { background-position: 600px 0; }
+}
+
+.extraction-panel.extracting .field-group input,
+.extraction-panel.extracting .field-group textarea {
+background: linear-gradient(90deg, var(–cream) 25%, #e8dfc9 50%, var(–cream) 75%);
+background-size: 800px 100%;
+animation: shimmer 1.4s infinite linear;
+pointer-events: none;
+color: transparent;
+border-color: var(–cream-dark);
+}
+
+.spinner {
+width: 20px; height: 20px;
+border: 3px solid rgba(201,168,76,0.3);
+border-top-color: var(–gold);
+border-radius: 50%;
+animation: spin 0.8s linear infinite;
+flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.processing-indicator span { font-size: 0.875rem; color: var(–teal-dark); font-weight: 500; }
+
+.action-row {
+display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap;
+}
+
+.btn-primary {
+background: linear-gradient(135deg, var(–gold) 0%, var(–gold-light) 100%);
+color: var(–teal-dark);
+border: none;
+padding: 0.75rem 1.5rem;
+border-radius: 50px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.875rem;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.25s ease;
+flex: 1;
+min-width: 120px;
+}
+
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(201,168,76,0.4); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+background: transparent;
+color: var(–text-muted);
+border: 1.5px solid var(–cream-dark);
+padding: 0.75rem 1.25rem;
+border-radius: 50px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.875rem;
+cursor: pointer;
+transition: all 0.25s ease;
+}
+
+.btn-secondary:hover { border-color: var(–teal); color: var(–teal); }
+
+.schedule-section { animation: slideUp 0.5s ease; }
+
+.schedule-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 1.5rem;
+gap: 1rem;
+flex-wrap: wrap;
+}
+
+.schedule-header h2 {
+font-family: ‘Amiri’, serif;
+font-size: 1.8rem;
+color: var(–teal-dark);
+}
+
+.header-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+.count-badge {
+background: var(–teal);
+color: var(–white);
+font-size: 0.8rem;
+font-weight: 600;
+padding: 0.3rem 0.9rem;
+border-radius: 50px;
+}
+
+.realtime-badge {
+background: rgba(76,175,80,0.15);
+color: #2E7D32;
+font-size: 0.75rem;
+font-weight: 600;
+padding: 0.3rem 0.75rem;
+border-radius: 50px;
+display: flex;
+align-items: center;
+gap: 0.35rem;
+}
+
+.realtime-dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+background: #4CAF50;
+animation: pulse 2s ease-in-out infinite;
+}
+
+.sort-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+
+.sort-btn {
+background: var(–white);
+border: 1.5px solid var(–cream-dark);
+color: var(–text-muted);
+padding: 0.4rem 1rem;
+border-radius: 50px;
+font-size: 0.8rem;
+cursor: pointer;
+transition: all 0.2s;
+font-family: ‘DM Sans’, sans-serif;
+}
+
+.sort-btn.active { background: var(–teal); border-color: var(–teal); color: var(–white); }
+
+.empty-state {
+text-align: center;
+padding: 4rem 2rem;
+background: var(–white);
+border-radius: 20px;
+border: 2px dashed var(–cream-dark);
+}
+
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+.empty-state h3 {
+font-family: ‘Amiri’, serif;
+font-size: 1.3rem;
+color: var(–teal-dark);
+margin-bottom: 0.5rem;
+}
+
+.empty-state p { color: var(–text-muted); font-size: 0.9rem; }
+
+.loading-state { text-align: center; padding: 3rem; color: var(–text-muted); }
+.loading-state .spinner { margin: 0 auto 1rem; width: 32px; height: 32px; }
+
+.event-card {
+background: var(–white);
+border-radius: 18px;
+padding: 1.5rem;
+box-shadow: var(–shadow);
+margin-bottom: 1rem;
+border-left: 5px solid var(–gold);
+display: grid;
+grid-template-columns: auto auto 1fr auto;
+gap: 1.25rem;
+align-items: start;
+transition: all 0.25s ease;
+animation: slideUp 0.4s ease;
+position: relative;
+overflow: hidden;
+}
+
+.event-card::after {
+content: ‘☪’;
+position: absolute;
+right: 4rem;
+top: 50%;
+transform: translateY(-50%);
+font-size: 4rem;
+color: rgba(201,168,76,0.06);
+pointer-events: none;
+}
+
+.event-card:hover { transform: translateY(-3px); box-shadow: var(–shadow-lg); }
+.event-card.conflict { border-left-color: #E05A5A; }
+
+.time-block {
+text-align: center;
+background: var(–cream);
+border-radius: 12px;
+padding: 0.75rem 1rem;
+min-width: 80px;
+}
+
+.time-block .time-start { font-size: 1.1rem; font-weight: 700; color: var(–teal); line-height: 1; }
+.time-block .time-end { font-size: 0.75rem; color: var(–text-muted); margin-top: 0.2rem; }
+.time-block .time-date {
+font-size: 0.7rem;
+color: var(–gold);
+font-weight: 600;
+text-transform: uppercase;
+letter-spacing: 0.05em;
+margin-top: 0.4rem;
+}
+
+.event-info h3 {
+font-family: ‘Amiri’, serif;
+font-size: 1.15rem;
+color: var(–teal-dark);
+margin-bottom: 0.35rem;
+line-height: 1.3;
+}
+
+.event-meta { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.meta-item {
+display: flex;
+align-items: center;
+gap: 0.4rem;
+font-size: 0.82rem;
+color: var(–text-muted);
+}
+
+.meta-icon { font-size: 0.9rem; flex-shrink: 0; }
+
+.event-actions { display: flex; flex-direction: column; gap: 0.4rem; z-index: 1; }
+
+.icon-btn {
+background: none;
+border: none;
+cursor: pointer;
+font-size: 1rem;
+padding: 0.35rem;
+border-radius: 8px;
+transition: background 0.2s;
+color: var(–text-muted);
+}
+
+.icon-btn:hover { background: var(–cream); color: var(–teal); }
+.icon-btn.delete:hover { background: #FEE; color: #E05A5A; }
+
+.conflict-badge {
+display: inline-flex;
+align-items: center;
+gap: 0.3rem;
+background: #FEE;
+color: #C0392B;
+font-size: 0.72rem;
+font-weight: 600;
+padding: 0.2rem 0.6rem;
+border-radius: 50px;
+margin-top: 0.4rem;
+}
+
+.new-badge {
+display: inline-block;
+background: var(–gold);
+color: var(–teal-dark);
+font-size: 0.62rem;
+font-weight: 700;
+padding: 0.1rem 0.5rem;
+border-radius: 50px;
+text-transform: uppercase;
+letter-spacing: 0.05em;
+margin-left: 0.5rem;
+vertical-align: middle;
+}
+
+.toast {
+position: fixed;
+bottom: 2rem;
+right: 2rem;
+background: var(–teal-dark);
+color: var(–white);
+padding: 0.9rem 1.5rem;
+border-radius: 14px;
+font-size: 0.875rem;
+box-shadow: var(–shadow-lg);
+z-index: 9999;
+display: flex;
+align-items: center;
+gap: 0.5rem;
+transform: translateY(100px);
+opacity: 0;
+transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toast.show { transform: translateY(0); opacity: 1; }
+
+.modal-overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(13,58,69,0.6);
+z-index: 1000;
+backdrop-filter: blur(4px);
+align-items: center;
+justify-content: center;
+padding: 1rem;
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal {
+background: var(–white);
+border-radius: 24px;
+padding: 2rem;
+max-width: 480px;
+width: 100%;
+box-shadow: var(–shadow-lg);
+animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+max-height: 90vh;
+overflow-y: auto;
+}
+
+@keyframes popIn {
+from { opacity:0; transform:scale(0.9); }
+to { opacity:1; transform:scale(1); }
+}
+
+.modal h3 {
+font-family: ‘Amiri’, serif;
+font-size: 1.4rem;
+color: var(–teal-dark);
+margin-bottom: 1.25rem;
+}
+
+.lightbox {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,0.88);
+z-index: 2000;
+align-items: center;
+justify-content: center;
+padding: 1rem;
+cursor: zoom-out;
+}
+
+.lightbox.open { display: flex; }
+
+.lightbox img {
+max-width: 90vw;
+max-height: 90vh;
+border-radius: 12px;
+object-fit: contain;
+box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* ── API KEY BANNER ─────────────────────────────────────────── */
+.api-banner {
+background: linear-gradient(135deg, #fff8e8, #fffdf5);
+border: 1.5px solid rgba(201,168,76,0.35);
+border-radius: 16px;
+padding: 1.25rem 1.5rem;
+margin-bottom: 2rem;
+display: flex;
+align-items: center;
+gap: 1rem;
+flex-wrap: wrap;
+animation: slideUp 0.4s ease;
+}
+
+.api-banner.hidden { display: none; }
+
+.api-banner-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+.api-banner-text { flex: 1; min-width: 180px; }
+
+.api-banner-text strong {
+display: block;
+font-size: 0.9rem;
+color: var(–teal-dark);
+margin-bottom: 0.15rem;
+}
+
+.api-banner-text span {
+font-size: 0.8rem;
+color: var(–text-muted);
+}
+
+.api-banner-text a {
+color: var(–teal);
+text-decoration: none;
+font-weight: 500;
+}
+
+.api-banner-text a:hover { text-decoration: underline; }
+
+.api-input-row {
+display: flex;
+gap: 0.5rem;
+flex: 2;
+min-width: 240px;
+}
+
+.api-input-row input {
+flex: 1;
+padding: 0.6rem 1rem;
+border: 1.5px solid var(–cream-dark);
+border-radius: 10px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.85rem;
+color: var(–text);
+background: var(–white);
+outline: none;
+transition: border-color 0.2s;
+font-family: monospace;
+letter-spacing: 0.03em;
+}
+
+.api-input-row input:focus { border-color: var(–gold); }
+
+.api-save-btn {
+background: var(–teal);
+color: var(–white);
+border: none;
+padding: 0.6rem 1.2rem;
+border-radius: 10px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.85rem;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.2s;
+white-space: nowrap;
+}
+
+.api-save-btn:hover { background: var(–teal-dark); transform: translateY(-1px); }
+
+/* Settings cog in header */
+.header-settings {
+position: absolute;
+top: 1.25rem;
+right: 1.25rem;
+background: rgba(255,255,255,0.12);
+border: none;
+border-radius: 50%;
+width: 36px;
+height: 36px;
+font-size: 1rem;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: background 0.2s;
+color: rgba(255,255,255,0.8);
+}
+
+.header-settings:hover { background: rgba(255,255,255,0.22); color: var(–white); }
+
+/* API key status pill in upload section */
+.api-status-pill {
+display: inline-flex;
+align-items: center;
+gap: 0.35rem;
+font-size: 0.75rem;
+font-weight: 600;
+padding: 0.25rem 0.75rem;
+border-radius: 50px;
+margin-bottom: 1rem;
+}
+
+.api-status-pill.ok { background: rgba(76,175,80,0.12); color: #2E7D32; }
+.api-status-pill.missing { background: rgba(224,90,90,0.12); color: #C0392B; }
+
+.api-status-dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+background: currentColor;
+}
+
+/* ── MAP SECTION ──────────────────────────────────────────────── */
+.map-section {
+margin-bottom: 2rem;
+animation: slideUp 0.5s ease;
+}
+
+.map-card {
+background: var(–white);
+border-radius: 20px;
+box-shadow: var(–shadow);
+border: 1px solid rgba(201,168,76,0.2);
+overflow: hidden;
+}
+
+.map-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 1.25rem 1.5rem;
+border-bottom: 1px solid var(–cream-dark);
+flex-wrap: wrap;
+gap: 0.75rem;
+}
+
+.map-header h2 {
+font-family: ‘Amiri’, serif;
+font-size: 1.5rem;
+color: var(–teal-dark);
+}
+
+.map-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+.map-btn {
+background: var(–teal);
+color: var(–white);
+border: none;
+padding: 0.5rem 1.1rem;
+border-radius: 50px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.8rem;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.2s;
+display: flex;
+align-items: center;
+gap: 0.35rem;
+}
+
+.map-btn:hover { background: var(–teal-dark); transform: translateY(-1px); }
+
+.map-btn.secondary {
+background: transparent;
+color: var(–teal);
+border: 1.5px solid var(–teal);
+}
+
+.map-btn.secondary:hover { background: var(–teal); color: var(–white); }
+
+.map-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+#mapContainer {
+height: 420px;
+width: 100%;
+position: relative;
+}
+
+.map-empty {
+height: 420px;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+color: var(–text-muted);
+background: var(–cream);
+gap: 0.5rem;
+}
+
+.map-empty-icon { font-size: 2.5rem; }
+
+.map-empty p { font-size: 0.9rem; }
+
+.route-panel {
+padding: 1rem 1.5rem;
+background: var(–cream);
+border-top: 1px solid var(–cream-dark);
+display: none;
+}
+
+.route-panel.visible { display: block; }
+
+.route-panel-title {
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.12em;
+color: var(–teal);
+font-weight: 600;
+margin-bottom: 0.75rem;
+}
+
+.route-stops {
+display: flex;
+flex-wrap: wrap;
+gap: 0.4rem;
+align-items: center;
+}
+
+.route-stop {
+display: flex;
+align-items: center;
+gap: 0.3rem;
+background: var(–white);
+border: 1.5px solid var(–cream-dark);
+border-radius: 50px;
+padding: 0.3rem 0.8rem;
+font-size: 0.8rem;
+color: var(–teal-dark);
+font-weight: 500;
+}
+
+.route-stop-num {
+width: 18px;
+height: 18px;
+border-radius: 50%;
+background: var(–teal);
+color: var(–white);
+font-size: 0.65rem;
+font-weight: 700;
+display: flex;
+align-items: center;
+justify-content: center;
+flex-shrink: 0;
+}
+
+.route-arrow {
+color: var(–gold);
+font-size: 1rem;
+font-weight: bold;
+}
+
+.route-gmaps-btn {
+display: inline-flex;
+align-items: center;
+gap: 0.4rem;
+margin-top: 0.75rem;
+background: linear-gradient(135deg, var(–gold), var(–gold-light));
+color: var(–teal-dark);
+border: none;
+padding: 0.6rem 1.25rem;
+border-radius: 50px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.82rem;
+font-weight: 700;
+cursor: pointer;
+transition: all 0.2s;
+text-decoration: none;
+}
+
+.route-gmaps-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(201,168,76,0.4); }
+
+.geocoding-status {
+font-size: 0.8rem;
+color: var(–text-muted);
+padding: 0.5rem 0;
+display: flex;
+align-items: center;
+gap: 0.5rem;
+}
+
+/* Custom Leaflet marker styles */
+.custom-marker {
+background: var(–teal);
+border: 3px solid var(–white);
+border-radius: 50% 50% 50% 0;
+transform: rotate(-45deg);
+box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.custom-marker-inner {
+transform: rotate(45deg);
+color: white;
+font-size: 0.65rem;
+font-weight: 800;
+display: flex;
+align-items: center;
+justify-content: center;
+height: 100%;
+font-family: ‘DM Sans’, sans-serif;
+}
+
+/* ── DAY TABS ──────────────────────────────────────────────────── */
+#dayTabs {
+border-bottom: 1px solid var(–cream-dark);
+padding: 0.6rem 1rem 0;
+background: var(–cream);
+display: flex;
+gap: 0.25rem;
+flex-wrap: wrap;
+overflow-x: auto;
+}
+
+.day-tab {
+padding: 0.5rem 1.1rem;
+border: none;
+background: transparent;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.82rem;
+font-weight: 600;
+color: var(–text-muted);
+cursor: pointer;
+border-bottom: 3px solid transparent;
+margin-bottom: -1px;
+transition: all 0.2s;
+white-space: nowrap;
+border-radius: 8px 8px 0 0;
+}
+
+.day-tab:hover { color: var(–teal); background: rgba(26,92,107,0.05); }
+
+.day-tab.active {
+color: var(–teal-dark);
+border-bottom-color: var(–gold);
+background: var(–white);
+}
+
+.day-tab .tab-count {
+display: inline-block;
+background: var(–teal);
+color: white;
+font-size: 0.65rem;
+font-weight: 700;
+padding: 0.1rem 0.45rem;
+border-radius: 50px;
+margin-left: 0.35rem;
+vertical-align: middle;
+}
+
+.day-tab.active .tab-count { background: var(–gold); color: var(–teal-dark); }
+
+/* ════════════════════════════════════════════════════
+MOBILE / iPHONE OPTIMISATIONS
+════════════════════════════════════════════════════ */
+
+/* Safe area padding for iPhone notch/home bar */
+body {
+padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 600px) {
+
+```
+/* ── Header ── */
+header {
+  padding: 1.5rem 1rem 2rem;
+}
+
+.crescent { font-size: 2.2rem; }
+
+header h1 { font-size: 1.75rem; }
+
+.eid-greeting { font-size: 0.95rem; }
+
+header .subtitle { font-size: 0.75rem; letter-spacing: 0.07em; }
+
+.sync-bar { font-size: 0.75rem; padding: 0.4rem 1rem; }
+
+.header-settings {
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 40px;
+  height: 40px;
+}
+
+/* ── Main padding ── */
+main { padding: 1rem 0.875rem 5rem; }
+
+/* ── Upload section ── */
+.upload-section { padding: 1.25rem; border-radius: 16px; }
+
+.drop-zone { padding: 2rem 1rem; border-radius: 12px; }
+
+.drop-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+.drop-zone h3 { font-size: 1.05rem; }
+
+.drop-zone p { font-size: 0.8rem; }
+
+.upload-btn {
+  padding: 0.7rem 1.5rem;
+  font-size: 0.875rem;
+  /* Make tap target larger */
+  min-height: 44px;
+}
+
+/* ── API banner ── */
+.api-banner {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.api-input-row { min-width: unset; }
+
+.api-input-row input { font-size: 0.8rem; }
+
+.api-save-btn { min-height: 44px; }
+
+/* ── Preview section ── */
+.preview-section { padding: 1.25rem; border-radius: 16px; }
+
+.preview-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+.preview-img-wrap img { height: 180px; }
+
+/* ── Form fields ── */
+.field-group input,
+.field-group textarea {
+  font-size: 1rem; /* prevents iOS zoom on focus */
+  min-height: 44px;
+  padding: 0.7rem 0.9rem;
+}
+
+.field-group textarea { min-height: 72px; }
+
+.action-row { flex-direction: column; }
+
+.btn-primary, .btn-secondary {
+  min-height: 48px;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+/* ── Event cards ── */
+.event-card {
+  padding: 1rem;
+  gap: 0.75rem;
+  border-radius: 14px;
+  /* Disable hover lift on touch - feels wrong on mobile */
+  transition: none;
+}
+
+.event-card:hover { transform: none; box-shadow: var(--shadow); }
+
+/* Hide decorative crescent on small screens (clutters layout) */
+.event-card::after { display: none; }
+
+.time-block {
+  padding: 0.6rem 0.75rem;
+  min-width: 68px;
+}
+
+.time-block .time-start { font-size: 0.95rem; }
+
+.time-block .time-end { font-size: 0.7rem; }
+
+.time-block .time-date { font-size: 0.62rem; }
+
+.event-info h3 { font-size: 1rem; }
+
+.meta-item { font-size: 0.78rem; }
+
+/* Action buttons — bigger tap targets, horizontal row at bottom */
+.event-actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+/* ── Schedule header ── */
+.schedule-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+
+.schedule-header h2 { font-size: 1.4rem; }
+
+.header-right { flex-wrap: wrap; }
+
+/* ── Sort bar ── */
+.sort-bar { gap: 0.4rem; }
+
+.sort-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  min-height: 36px;
+}
+
+/* ── Map section ── */
+.map-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.map-header h2 { font-size: 1.2rem; }
+
+.map-controls { width: 100%; justify-content: flex-end; }
+
+.map-btn {
+  min-height: 40px;
+  font-size: 0.8rem;
+  padding: 0.5rem 1rem;
+}
+
+#mapContainer { height: 320px; }
+
+.day-tab {
+  font-size: 0.78rem;
+  padding: 0.45rem 0.85rem;
+  min-height: 36px;
+}
+
+.route-panel { padding: 0.875rem 1rem; }
+
+.route-stop { font-size: 0.75rem; padding: 0.25rem 0.65rem; }
+
+/* ── Modal ── */
+.modal {
+  border-radius: 20px 20px 0 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 100%;
+  max-height: 90vh;
+  margin: 0;
+  padding: 1.5rem 1.25rem;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+
+.modal-overlay { align-items: flex-end; padding: 0; }
+
+/* ── Toast ── */
+.toast {
+  left: 1rem;
+  right: 1rem;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  font-size: 0.875rem;
+  justify-content: center;
+  text-align: center;
+}
+
+/* ── Empty/loading states ── */
+.empty-state { padding: 2.5rem 1rem; }
+.empty-state .empty-icon { font-size: 2.5rem; }
+.empty-state h3 { font-size: 1.1rem; }
+```
+
+}
+
+/* Slightly larger phones (iPhone Pro Max etc) */
+@media (max-width: 430px) {
+.event-card { grid-template-columns: auto auto 1fr; }
+/* Move actions below the event info */
+.event-actions {
+grid-column: 1 / -1;
+flex-direction: row;
+justify-content: flex-end;
+border-top: 1px solid var(–cream-dark);
+padding-top: 0.6rem;
+margin-top: 0.1rem;
+}
+}
+
+/* ── VISITED STATE ───────────────────────────────────────────── */
+.event-card.visited {
+opacity: 0.6;
+border-left-color: #4CAF50;
+background: #f9fdf9;
+}
+
+.event-card.visited .time-start,
+.event-card.visited h3 { text-decoration: line-through; text-decoration-color: rgba(0,0,0,0.25); }
+
+.visited-btn {
+background: none;
+border: 2px solid var(–cream-dark);
+cursor: pointer;
+width: 28px;
+height: 28px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 0.85rem;
+transition: all 0.2s;
+flex-shrink: 0;
+color: var(–text-muted);
+}
+
+.visited-btn:hover { border-color: #4CAF50; background: rgba(76,175,80,0.1); }
+
+.event-card.visited .visited-btn {
+background: #4CAF50;
+border-color: #4CAF50;
+color: white;
+}
+
+.visited-count {
+font-size: 0.75rem;
+color: #4CAF50;
+font-weight: 600;
+display: flex;
+align-items: center;
+gap: 0.25rem;
+}
+
+/* ── DAY GROUP (collapsible) ─────────────────────────────────── */
+.day-group { margin-bottom: 0.5rem; }
+
+.day-group-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0.7rem 1rem;
+background: var(–white);
+border-radius: 14px;
+cursor: pointer;
+border: 1px solid var(–cream-dark);
+margin-bottom: 0.5rem;
+user-select: none;
+transition: background 0.2s;
+-webkit-tap-highlight-color: transparent;
+}
+
+.day-group-header:hover { background: var(–cream); }
+
+.day-group-header.collapsed { margin-bottom: 0; border-radius: 14px; }
+
+.day-group-title {
+font-family: ‘Amiri’, serif;
+font-size: 1.05rem;
+color: var(–teal-dark);
+font-weight: 700;
+}
+
+.day-group-meta {
+display: flex;
+align-items: center;
+gap: 0.6rem;
+font-size: 0.8rem;
+color: var(–text-muted);
+}
+
+.day-group-chevron {
+font-size: 0.75rem;
+color: var(–text-muted);
+transition: transform 0.25s;
+display: inline-block;
+}
+
+.day-group-header.collapsed .day-group-chevron { transform: rotate(-90deg); }
+
+.day-group-body {
+overflow: hidden;
+transition: max-height 0.3s ease, opacity 0.25s ease;
+max-height: 2000px;
+opacity: 1;
+}
+
+.day-group-body.collapsed { max-height: 0; opacity: 0; }
+
+/* ── SETTINGS MODAL ──────────────────────────────────────────── */
+.settings-section {
+border-bottom: 1px solid var(–cream-dark);
+padding-bottom: 1.25rem;
+margin-bottom: 1.25rem;
+}
+
+.settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.settings-section h4 {
+font-size: 0.75rem;
+text-transform: uppercase;
+letter-spacing: 0.12em;
+color: var(–teal);
+font-weight: 600;
+margin-bottom: 0.75rem;
+}
+
+.eid-date-row {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+flex-wrap: wrap;
+}
+
+.eid-date-row input[type=date] {
+flex: 1;
+min-width: 140px;
+padding: 0.6rem 0.9rem;
+border: 1.5px solid var(–cream-dark);
+border-radius: 10px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.9rem;
+color: var(–text);
+background: var(–cream);
+outline: none;
+}
+
+.eid-date-row input[type=date]:focus { border-color: var(–gold); background: var(–white); }
+
+.eid-date-hint {
+font-size: 0.78rem;
+color: var(–text-muted);
+margin-top: 0.4rem;
+}
+
+.clear-key-btn {
+background: transparent;
+color: #C0392B;
+border: 1.5px solid rgba(192,57,43,0.3);
+padding: 0.5rem 1rem;
+border-radius: 8px;
+font-family: ‘DM Sans’, sans-serif;
+font-size: 0.82rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.clear-key-btn:hover { background: rgba(192,57,43,0.08); border-color: #C0392B; }
+
+.key-status-row {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+padding: 0.6rem 0.9rem;
+background: var(–cream);
+border-radius: 10px;
+font-size: 0.85rem;
+color: var(–text-muted);
+margin-bottom: 0.75rem;
+}
+
+.key-status-row .key-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+.day-group-header { padding: 0.6rem 0.875rem; border-radius: 12px; }
+.day-group-title { font-size: 0.95rem; }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <span class="crescent">🌙</span>
+  <h1>Eid Open Homes</h1>
+  <p class="eid-greeting">عيد مبارك — Family Visit Planner</p>
+  <p class="subtitle">Upload invitations · Extract details · Plan your day</p>
+  <div style="display:flex;justify-content:center;margin-top:1rem;">
+    <div class="sync-bar">
+      <div class="sync-dot syncing" id="syncDot"></div>
+      <span id="syncStatus">Connecting to family schedule…</span>
+    </div>
+  </div>
+  <button class="header-settings" onclick="openSettings()" title="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+</header>
+
+<main>
+  <!-- API KEY BANNER -->
+  <div class="api-banner" id="apiBanner">
+    <div class="api-banner-icon">🔑</div>
+    <div class="api-banner-text">
+      <strong>Claude API Key Required</strong>
+      <span>Needed for AI extraction. Get yours at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> — stored only in your browser.</span>
+    </div>
+    <div class="api-input-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-…" autocomplete="off" onkeydown="if(event.key==='Enter') saveApiKey()">
+      <button class="api-save-btn" onclick="saveApiKey()">Save Key</button>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+
+  <div class="upload-section">
+    <div class="section-label">📸 Add Invitation</div>
+    <div id="apiStatusPill" class="api-status-pill missing"><span class="api-status-dot"></span> API key required for extraction</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="drop-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="14" width="40" height="28" rx="5" fill="#C9A84C" opacity="0.15" stroke="#C9A84C" stroke-width="2"/>
+            <circle cx="24" cy="28" r="8" fill="none" stroke="#C9A84C" stroke-width="2"/>
+            <circle cx="24" cy="28" r="4" fill="#C9A84C" opacity="0.5"/>
+            <path d="M17 14l2.5-4h5L27 14" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="37" cy="20" r="2" fill="#C9A84C"/>
+          </svg>
+        </div>
+      <h3>Drop your invitation screenshots here</h3>
+      <p>or click to browse — JPG, PNG, HEIC supported</p>
+      <button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Choose Photo</button>
+    </div>
+  </div>
+
+  <!-- PREVIEW + EXTRACT -->
+
+  <div class="preview-section" id="previewSection">
+    <div class="section-label">✨ Review Extracted Details</div>
+    <div id="processingIndicator" class="processing-indicator" style="display:none;">
+      <div class="spinner"></div>
+      <span id="processingMsg">Reading your invitation with AI…</span>
+    </div>
+    <div class="preview-grid">
+      <div class="preview-img-wrap">
+        <img id="previewImg" src="" alt="Invitation preview">
+      </div>
+      <div class="extraction-panel">
+        <h3>Event Details</h3>
+        <div class="field-group">
+          <label>Host / Family Name</label>
+          <input type="text" id="fieldHost" placeholder="e.g. The Ahmed Family">
+        </div>
+        <div class="field-group">
+          <label>Date</label>
+          <input type="date" id="fieldDate">
+        </div>
+        <div class="field-group">
+          <label>Start Time</label>
+          <input type="time" id="fieldStart">
+        </div>
+        <div class="field-group">
+          <label>End Time</label>
+          <input type="time" id="fieldEnd">
+        </div>
+        <div class="field-group">
+          <label>Address</label>
+          <input type="text" id="fieldAddress" placeholder="e.g. 14 Rosebank Ave, Auckland">
+        </div>
+        <div class="field-group">
+          <label>Notes</label>
+          <textarea id="fieldNotes" placeholder="e.g. Bring dessert, parking at front"></textarea>
+        </div>
+        <div class="action-row">
+          <button class="btn-primary" id="addToScheduleBtn" onclick="addToSchedule()">Save to Family Schedule ✓</button>
+          <button class="btn-secondary" onclick="cancelPreview()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP SECTION -->
+
+  <div class="map-section" id="mapSection">
+    <div class="map-card">
+      <div class="map-header">
+        <h2>📍 Visit Map & Route</h2>
+        <div class="map-controls">
+          <div class="geocoding-status" id="geocodingStatus" style="display:none;">
+            <div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>
+            <span id="geocodingMsg">Locating addresses…</span>
+          </div>
+          <button class="map-btn secondary" id="refreshMapBtn" onclick="buildMap(true)" title="Re-geocode all addresses">↻ Refresh</button>
+          <button class="map-btn" id="routeBtn" onclick="calcRoute()" disabled>✦ Best Route</button>
+        </div>
+      </div>
+      <!-- DAY TABS -->
+      <div id="dayTabs" style="display:none; border-bottom:1px solid var(--cream-dark); padding: 0 1rem; background: var(--cream); display:flex; gap:0.25rem; flex-wrap:wrap; overflow-x:auto;"></div>
+      <div id="mapContainer">
+        <div class="map-empty" id="mapEmpty">
+          <div class="map-empty-icon">🕌</div>
+          <p>Add visits with addresses to see them on the map</p>
+        </div>
+      </div>
+      <div class="route-panel" id="routePanel">
+        <div class="route-panel-title">⚡ Most Efficient Route — <span id="routeDayLabel"></span></div>
+        <div class="route-stops" id="routeStops"></div>
+        <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank">
+          📍 Open in Google Maps
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+
+  <div class="schedule-section">
+    <div class="schedule-header">
+      <h2>🗓 Family Schedule</h2>
+      <div class="header-right">
+        <div class="realtime-badge">
+          <div class="realtime-dot"></div>
+          Live sync
+        </div>
+        <span class="count-badge" id="eventCount">0 visits</span>
+      </div>
+    </div>
+
+```
+<div class="sort-bar">
+  <button class="sort-btn active" data-sort="time" onclick="setSortMode('time', this)">By Time</button>
+  <button class="sort-btn" data-sort="date" onclick="setSortMode('date', this)">By Date</button>
+  <button class="sort-btn" data-sort="alpha" onclick="setSortMode('alpha', this)">A–Z</button>
+  <button class="sort-btn" onclick="fixWrongYears()" title="Fix any entries saved with wrong year" style="margin-left:auto;font-size:0.75rem;opacity:0.7">Fix Years</button>
+</div>
+
+<div id="scheduleList">
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading family schedule…</p>
+  </div>
+</div>
+```
+
+  </div>
+</main>
+
+<!-- SETTINGS MODAL -->
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:440px;">
+    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</h3>
+
+```
+<div class="settings-section">
+  <h4>🏠 Home Address</h4>
+  <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">Your starting point for route planning.</p>
+  <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+    <input type="text" id="homeAddressInput" placeholder="e.g. 12 Example Street, Auckland" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;">
+    <button class="api-save-btn" onclick="saveHomeAddress()">Save</button>
+  </div>
+  <p id="homeAddressStatus" style="font-size:0.75rem;color:#6B6B6B;margin-bottom:1.25rem;min-height:1rem;"></p>
+
+  <h4>🕐 Departure Time</h4>
+  <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">What time are you leaving home on Eid day?</p>
+  <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1.25rem;">
+    <input type="time" id="departureTimeInput" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;" value="12:00">
+    <button class="api-save-btn" onclick="saveDepartureTime()">Save</button>
+  </div>
+
+  <h4>🌙 Eid Date</h4>
+  <p class="eid-date-hint" style="margin-bottom:0.6rem;">Invitations that say "Eid" or "Eid day" will use this date.</p>
+  <div class="eid-date-row">
+    <input type="date" id="settingsEidDate" onchange="saveEidDate()">
+    <button class="btn-secondary" onclick="clearEidDate()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Clear</button>
+  </div>
+  <p class="eid-date-hint" id="eidDateHint" style="margin-top:0.5rem;color:var(--teal);"></p>
+</div>
+
+<div class="settings-section">
+  <h4>🔑 Claude API Key</h4>
+  <div class="key-status-row" id="settingsKeyStatus">
+    <div class="key-dot" id="settingsKeyDot"></div>
+    <span id="settingsKeyLabel">No key saved</span>
+  </div>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+    <input type="password" id="settingsApiInput" placeholder="sk-ant-api03-…" autocomplete="off"
+      style="flex:1;min-width:160px;padding:0.6rem 0.9rem;border:1.5px solid var(--cream-dark);border-radius:10px;font-family:monospace;font-size:0.82rem;outline:none;background:var(--cream);"
+      onkeydown="if(event.key==='Enter') saveApiKeyFromSettings()">
+    <button class="api-save-btn" onclick="saveApiKeyFromSettings()" style="min-height:40px;">Save</button>
+  </div>
+  <button class="clear-key-btn" onclick="clearApiKey()" style="margin-top:0.6rem;">Remove saved key</button>
+</div>
+
+<div class="action-row" style="margin-top:0.5rem;">
+  <button class="btn-primary" onclick="closeSettings()">Done</button>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- TOAST -->
+
+<div class="toast" id="toast"><span id="toastMsg">✓ Done!</span></div>
+
+<!-- EDIT MODAL -->
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>✏️ Edit Visit</h3>
+    <div class="field-group"><label>Host / Family</label><input type="text" id="editHost"></div>
+    <div class="field-group"><label>Date</label><input type="date" id="editDate"></div>
+    <div class="field-group"><label>Start Time</label><input type="time" id="editStart"></div>
+    <div class="field-group"><label>End Time</label><input type="time" id="editEnd"></div>
+    <div class="field-group"><label>Address</label><input type="text" id="editAddress"></div>
+    <div class="field-group"><label>Notes</label><textarea id="editNotes"></textarea></div>
+    <div class="action-row">
+      <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE LIGHTBOX -->
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="Invitation">
+</div>
+
+<script>
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://edyuizgeyqrnkijvvufx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkeXVpemdleXFybmtpanZ2dWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MjkxMTcsImV4cCI6MjA4NjQwNTExN30.8zVQP7LbZaj6DOu7KL_tJSjvrDTpHxjTDWL7fMZeaLk';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── API KEY MANAGEMENT ──────────────────────────────────────────────────────
+const API_KEY_STORAGE = 'eid_claude_api_key';
+
+function getApiKey() {
+  return localStorage.getItem(API_KEY_STORAGE) || '';
+}
+
+function saveApiKey() {
+  const input = document.getElementById('apiKeyInput');
+  const btn = document.querySelector('.api-save-btn');
+  const key = input.value.trim();
+
+  if (!key) {
+    showInlineFeedback('error', 'Please paste your Claude API key above');
+    input.focus();
+    return;
+  }
+  if (!key.startsWith('sk-ant-')) {
+    showInlineFeedback('error', 'That does not look right - Claude API keys start with sk-ant-');
+    input.focus();
+    return;
+  }
+
+  // Save it
+  localStorage.setItem(API_KEY_STORAGE, key);
+  input.value = '';
+
+  // Visual confirmation on the button
+  const origText = btn.textContent;
+  btn.textContent = '✓ Saved!';
+  btn.style.background = '#4CAF50';
+  setTimeout(() => { btn.textContent = origText; btn.style.background = ''; }, 2500);
+
+  showInlineFeedback('success', 'Key saved — AI extraction is ready to use!');
+  updateApiUi();
+  showToast('🔑 Claude API key saved!');
+}
+
+function showInlineFeedback(type, msg) {
+  let el = document.getElementById('apiFeedback');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'apiFeedback';
+    const row = document.querySelector('.api-input-row');
+    row.parentNode.insertBefore(el, row.nextSibling);
+  }
+  const isSuccess = type === 'success';
+  el.style.cssText = [
+    'margin-top:0.65rem',
+    'padding:0.6rem 1rem',
+    'border-radius:10px',
+    'font-size:0.85rem',
+    'font-weight:500',
+    'display:block',
+    isSuccess
+      ? 'background:rgba(76,175,80,0.13);color:#2E7D32;border:1.5px solid rgba(76,175,80,0.35)'
+      : 'background:rgba(224,90,90,0.1);color:#C0392B;border:1.5px solid rgba(224,90,90,0.3)',
+  ].join(';');
+  el.innerHTML = (isSuccess ? '✅ ' : '⚠️ ') + msg;
+  if (isSuccess) setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+function clearApiKey() {
+  localStorage.removeItem(API_KEY_STORAGE);
+  updateApiUi();
+  showToast('🚫 API key removed');
+}
+
+function toggleApiBanner() {
+  const banner = document.getElementById('apiBanner');
+  banner.classList.toggle('hidden');
+  if (!banner.classList.contains('hidden')) {
+    document.getElementById('apiKeyInput').focus();
+  }
+}
+
+function updateApiUi() {
+  const key = getApiKey();
+  const banner = document.getElementById('apiBanner');
+
+  if (key) {
+    // Key is set — hide banner, show masked key
+    banner.classList.add('hidden');
+    const masked = key.slice(0, 14) + '••••••••••••' + key.slice(-4);
+    document.getElementById('apiKeyInput').placeholder = masked;
+    // Update drop zone label
+    const pill = document.getElementById('apiStatusPill');
+    if (pill) {
+      pill.className = 'api-status-pill ok';
+      pill.innerHTML = '<span class="api-status-dot"></span> AI extraction ready';
+    }
+  } else {
+    // No key — show banner
+    banner.classList.remove('hidden');
+    const pill = document.getElementById('apiStatusPill');
+    if (pill) {
+      pill.className = 'api-status-pill missing';
+      pill.innerHTML = '<span class="api-status-dot"></span> API key required for extraction';
+    }
+  }
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let events = [];
+let currentFile = null;
+let currentImageBase64 = null;
+let sortMode = 'time';
+let editingId = null;
+let recentlyAddedIds = new Set();
+
+// ─── SYNC STATUS ──────────────────────────────────────────────────────────────
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('syncDot');
+  const status = document.getElementById('syncStatus');
+  dot.className = 'sync-dot' + (state === 'syncing' ? ' syncing' : state === 'error' ? ' error' : '');
+  status.textContent = msg;
+}
+
+// ─── LOAD EVENTS ─────────────────────────────────────────────────────────────
+async function loadEvents() {
+  setSyncStatus('syncing', 'Loading family schedule…');
+  try {
+    const { data, error } = await db
+      .from('eid_events')
+      .select('*')
+      .order('date', { ascending: true, nullsFirst: false })
+      .order('start_time', { ascending: true, nullsFirst: false });
+
+    if (error) throw error;
+    events = (data || []).map(normalizeRow);
+    renderSchedule();
+    setSyncStatus('ok', `Synced • ${events.length} visit${events.length !== 1 ? 's' : ''} in family schedule`);
+  } catch (err) {
+    console.error('Load error:', err);
+    setSyncStatus('error', 'Could not connect — check table setup');
+    document.getElementById('scheduleList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <h3>Couldn't load schedule</h3>
+        <p>Make sure you've run the setup SQL to create the <strong>eid_events</strong> table in Supabase.</p>
+      </div>`;
+  }
+}
+
+function normalizeRow(row) {
+  return {
+    id: row.id,
+    host: row.host || '',
+    date: row.date || '',
+    start: row.start_time ? row.start_time.slice(0,5) : '',
+    end: row.end_time ? row.end_time.slice(0,5) : '',
+    address: row.address || '',
+    notes: row.notes || '',
+    image_url: row.image_url || null,
+    visited: row.visited || false,
+    lat: row.lat || null,
+    lng: row.lng || null,
+  };
+}
+
+// ─── REALTIME ────────────────────────────────────────────────────────────────
+function subscribeRealtime() {
+  db.channel('eid_realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'eid_events' }, ({ eventType, new: newRow, old: oldRow }) => {
+      if (eventType === 'INSERT') {
+        if (!events.find(e => e.id === newRow.id)) {
+          const ev = normalizeRow(newRow);
+          events.push(ev);
+          recentlyAddedIds.add(ev.id);
+          setTimeout(() => { recentlyAddedIds.delete(ev.id); renderSchedule(); }, 5000);
+          showToast(`🌙 ${ev.host} added to schedule!`);
+        }
+      } else if (eventType === 'UPDATE') {
+        const idx = events.findIndex(e => e.id === newRow.id);
+        if (idx !== -1) events[idx] = normalizeRow(newRow);
+      } else if (eventType === 'DELETE') {
+        events = events.filter(e => e.id !== oldRow.id);
+      }
+      renderSchedule();
+      setSyncStatus('ok', `Synced • ${events.length} visit${events.length !== 1 ? 's' : ''} in family schedule`);
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') {
+        setSyncStatus('ok', `Live • ${events.length} visit${events.length !== 1 ? 's' : ''} in family schedule`);
+      }
+    });
+}
+
+// ─── DRAG & DROP ──────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+// ─── FILE HANDLING ────────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) { showToast('⚠️ Please upload an image file'); return; }
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    currentImageBase64 = e.target.result;
+    document.getElementById('previewImg').src = currentImageBase64;
+    document.getElementById('previewSection').classList.add('visible');
+    ['fieldHost','fieldDate','fieldStart','fieldEnd','fieldAddress','fieldNotes'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await extractWithAI(currentImageBase64);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── AI EXTRACTION ────────────────────────────────────────────────────────────
+async function extractWithAI(base64DataUrl) {
+  const indicator = document.getElementById('processingIndicator');
+  const addBtn = document.getElementById('addToScheduleBtn');
+  indicator.style.display = 'flex';
+  document.getElementById('processingMsg').textContent = 'Reading invitation with AI…';
+  addBtn.disabled = true;
+
+  try {
+    const matches = base64DataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) throw new Error('Invalid image');
+    const [, mediaType, base64Data] = matches;
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      showToast('🔑 Please add your Claude API key first (⚙️ button)');
+      document.getElementById('apiBanner').classList.remove('hidden');
+      document.getElementById('apiKeyInput').focus();
+      indicator.style.display = 'none';
+      addBtn.disabled = false;
+      document.querySelector('.extraction-panel').classList.remove('extracting');
+      return;
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+              { type: 'text', text: `You are extracting event details from an Eid open home / open house invitation image.
+
+Read ALL text visible in the image carefully — including decorative text, headers, footers, small print, and any text overlaid on backgrounds or images.
+
+Respond ONLY with a single valid JSON object. No markdown fences, no explanation, no extra text before or after.
+
+{
+  "host": "The hosting family or person's name. Look for 'hosted by', 'invite from', family names, or the name prominently displayed. Include 'The X Family' format if shown.",
+  "date": "The event date as YYYY-MM-DD. Parse written dates like 'Monday 31st March', 'Eid day', '1 Shawwal' etc. CRITICAL: These are Eid open home invitations for 2025 - ALWAYS use 2025 as the year unless the invitation explicitly states a different year. Never use 2024. If the invitation mentions Eid, Eid day, or similar without a specific date, use THIS date for Eid: ${getEidDate()}. If a day of week is given (e.g. Friday 4 April), resolve it to the 2025 date. Return empty string only if truly no date info exists.",
+  "startTime": "Start time as HH:MM in 24-hour format. Look for 'from', 'open from', 'starting at', time ranges like '11am-4pm'. Convert 12h to 24h (e.g. 11am=11:00, 2pm=14:00, 6:30pm=18:30). Empty string if not found.",
+  "endTime": "End time as HH:MM in 24-hour format. Look for 'until', 'to', 'till', 'closes at', end of a time range. Empty string if not found.",
+  "address": "Full street address including suburb/city. Look for house number, street name, suburb. In New Zealand addresses may include Auckland suburbs. Combine all address parts into one string. Empty string if not found.",
+  "notes": "Any other relevant details such as: food being served, dress code, parking info, RSVP requests, contact numbers, 'please bring', special instructions. Combine into a single readable sentence or two. Empty string if nothing extra."
+}
+
+Be thorough — extract every piece of information visible. If something is partially visible or decorative, still try to read it.`
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    const rawText = (data.content?.[0]?.text || '').trim();
+
+    // Robust JSON extraction — handle any wrapping
+    let parsed = {};
+    try {
+      // Try direct parse first
+      parsed = JSON.parse(rawText);
+    } catch {
+      // Try extracting JSON block from text
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch(e) { console.warn('JSON parse failed', e); }
+      }
+    }
+
+    // Fill in all fields — clear first so old values don't linger
+    document.getElementById('fieldHost').value = parsed.host || '';
+    document.getElementById('fieldDate').value = parsed.date || '';
+    document.getElementById('fieldStart').value = parsed.startTime || '';
+    document.getElementById('fieldEnd').value = parsed.endTime || '';
+    document.getElementById('fieldAddress').value = parsed.address || '';
+    document.getElementById('fieldNotes').value = parsed.notes || '';
+
+    // Visual feedback on which fields were filled
+    const filled = ['fieldHost','fieldDate','fieldStart','fieldEnd','fieldAddress','fieldNotes']
+      .filter(id => document.getElementById(id).value.trim() !== '');
+
+    filled.forEach(id => {
+      const el = document.getElementById(id);
+      el.style.borderColor = 'var(--gold)';
+      el.style.background = 'rgba(201,168,76,0.06)';
+      setTimeout(() => {
+        el.style.borderColor = '';
+        el.style.background = '';
+      }, 3000);
+    });
+
+    const count = filled.length;
+    showToast(count > 0
+      ? `✨ ${count} detail${count > 1 ? 's' : ''} extracted! Review and save.`
+      : '⚠️ Could not read details — please fill in manually'
+    );
+
+  } catch(err) {
+    console.error('AI error:', err);
+    showToast('⚠️ Extraction failed — please fill in manually');
+  }
+
+  indicator.style.display = 'none';
+  addBtn.disabled = false;
+}
+
+// ─── UPLOAD IMAGE TO STORAGE ──────────────────────────────────────────────────
+async function uploadImage(file) {
+  if (!file) return null;
+  try {
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filename = `invite_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await db.storage.from('invitations').upload(filename, file, { contentType: file.type });
+    if (error) throw error;
+    const { data } = db.storage.from('invitations').getPublicUrl(filename);
+    return data.publicUrl;
+  } catch(err) {
+    console.warn('Image upload skipped:', err.message);
+    return null;
+  }
+}
+
+// ─── ADD TO SCHEDULE ──────────────────────────────────────────────────────────
+async function addToSchedule() {
+  const host = document.getElementById('fieldHost').value.trim();
+  if (!host) { showToast('⚠️ Please enter a host name'); return; }
+
+  const addBtn = document.getElementById('addToScheduleBtn');
+  const indicator = document.getElementById('processingIndicator');
+  addBtn.disabled = true;
+  indicator.style.display = 'flex';
+  document.getElementById('processingMsg').textContent = 'Saving to family schedule…';
+
+  try {
+    const imageUrl = await uploadImage(currentFile);
+
+    const { error } = await db.from('eid_events').insert([{
+      host,
+      date: document.getElementById('fieldDate').value || null,
+      start_time: document.getElementById('fieldStart').value || null,
+      end_time: document.getElementById('fieldEnd').value || null,
+      address: document.getElementById('fieldAddress').value.trim() || null,
+      notes: document.getElementById('fieldNotes').value.trim() || null,
+      image_url: imageUrl,
+    }]);
+
+    if (error) throw error;
+    cancelPreview();
+    document.getElementById('fileInput').value = '';
+    // Realtime subscription handles adding to list
+  } catch(err) {
+    console.error('Save error:', err);
+    showToast('✖️ Could not save — ' + (err.message || 'check Supabase'));
+    indicator.style.display = 'none';
+    addBtn.disabled = false;
+  }
+}
+
+function cancelPreview() {
+  document.getElementById('previewSection').classList.remove('visible');
+  document.getElementById('processingIndicator').style.display = 'none';
+  document.getElementById('addToScheduleBtn').disabled = false;
+  currentImageBase64 = null;
+  currentFile = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── SORT ─────────────────────────────────────────────────────────────────────
+function setSortMode(mode, btn) {
+  sortMode = mode;
+  document.querySelectorAll('.sort-btn[data-sort]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSchedule();
+}
+
+function getSorted() {
+  return [...events].sort((a, b) => {
+    if (sortMode === 'alpha') return a.host.localeCompare(b.host);
+    // For date & time sorts: put undated entries at the END
+    const aKey = a.date ? a.date : '9999';
+    const bKey = b.date ? b.date : '9999';
+    const dateVal = (key) => { const d = new Date(key + 'T12:00:00'); return isNaN(d) ? 99999999999999 : d.getTime(); };
+    if (sortMode === 'date') {
+      const diff = dateVal(aKey) - dateVal(bKey);
+      if (diff !== 0) return diff;
+      return (a.start||'').localeCompare(b.start||''); // within same day, sort by time
+    }
+    const aFull = dateVal(aKey) * 1e10 + (a.start||'').split(':').reduce((s,v,i)=>s+(+v)*(i?1:60),0);
+    const bFull = dateVal(bKey) * 1e10 + (b.start||'').split(':').reduce((s,v,i)=>s+(+v)*(i?1:60),0);
+    return aFull - bFull;
+  });
+}
+
+// ─── CONFLICT DETECTION ───────────────────────────────────────────────────────
+function hasConflict(ev) {
+  if (!ev.date || !ev.start || !ev.end) return false;
+  return events.some(e =>
+    e.id !== ev.id && e.date === ev.date && e.start && e.end &&
+    !(ev.end <= e.start || ev.start >= e.end)
+  );
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+// Track which day groups the user has collapsed
+const collapsedDays = new Set();
+
+function renderSchedule() {
+  const list = document.getElementById('scheduleList');
+  const sorted = getSorted();
+  const visitedCount = events.filter(e => e.visited).length;
+  const routeBtn = document.getElementById('routeBtn');
+  if (routeBtn) routeBtn.disabled = geocodedEvents.length < 2;
+
+  // Update count badge — show visited progress
+  const total = events.length;
+  const countEl = document.getElementById('eventCount');
+  if (visitedCount > 0) {
+    countEl.innerHTML = `${visitedCount}/${total} visited`;
+    countEl.style.background = visitedCount === total ? '#4CAF50' : 'var(--teal)';
+  } else {
+    countEl.textContent = `${total} visit${total !== 1 ? 's' : ''}`;
+    countEl.style.background = '';
+  }
+
+  if (!sorted.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🕌</div>
+        <h3>No visits added yet</h3>
+        <p>Upload Eid invitation screenshots above to get started</p>
+      </div>`;
+    return;
+  }
+
+  // By Date mode — collapsible day groups
+  if (sortMode === 'date') {
+    const grouped = {};
+    sorted.forEach(ev => {
+      const key = ev.date || 'undated';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(ev);
+    });
+
+    const sortedKeys = Object.keys(grouped).sort((a, b) => {
+      if (a === 'undated') return 1;
+      if (b === 'undated') return -1;
+      const da = new Date(a + 'T12:00:00');
+      const db = new Date(b + 'T12:00:00');
+      if (!isNaN(da) && !isNaN(db)) return da - db;
+      return a.localeCompare(b);
+    });
+
+    list.innerHTML = sortedKeys.map(dateKey => {
+      const evs = grouped[dateKey];
+      const _d = dateKey === 'undated' ? null : new Date(dateKey + 'T12:00:00');
+      const _eidYear = new Date(getEidDate() + 'T12:00:00').getFullYear() || new Date().getFullYear();
+      const _showYear = _d && _d.getFullYear() !== _eidYear;
+      const dateLabel = !_d ? 'No Date'
+        : _d.toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long', ...(_showYear ? {year:'numeric'} : {}) });
+      const isCollapsed = collapsedDays.has(dateKey);
+      const visitedInDay = evs.filter(e => e.visited).length;
+      const dayMeta = visitedInDay > 0
+        ? '<span class="visited-count">✓ ' + visitedInDay + '/' + evs.length + '</span>'
+        : '<span>' + evs.length + ' visit' + (evs.length !== 1 ? 's' : '') + '</span>';
+
+      return '<div class="day-group">'
+        + '<div class="day-group-header ' + (isCollapsed ? 'collapsed' : '') + '" onclick="toggleDayGroup(\'' + dateKey + '\')">'
+        + '<span class="day-group-title">' + dateLabel + '</span>'
+        + '<div class="day-group-meta">' + dayMeta + '<span class="day-group-chevron">▾</span></div>'
+        + '</div>'
+        + '<div class="day-group-body ' + (isCollapsed ? 'collapsed' : '') + '">'
+        + evs.map(ev => renderEventCard(ev)).join('')
+        + '</div></div>';
+    }).join('');
+    return;
+  }
+
+  // Time / Alpha mode — flat list
+  list.innerHTML = sorted.map(ev => renderEventCard(ev)).join('');
+}
+
+function toggleDayGroup(dateKey) {
+  if (collapsedDays.has(dateKey)) collapsedDays.delete(dateKey);
+  else collapsedDays.add(dateKey);
+  renderSchedule();
+}
+
+function renderEventCard(ev) {
+  const conflict = hasConflict(ev);
+  const isNew = recentlyAddedIds.has(ev.id);
+  const dateStr = ev.date
+    ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' })
+    : '—';
+
+  return `
+  <div class="event-card ${conflict ? 'conflict' : ''} ${ev.visited ? 'visited' : ''}">
+    <button class="visited-btn" title="${ev.visited ? 'Mark unvisited' : 'Mark as visited'}" onclick="toggleVisited('${ev.id}')">
+      ${ev.visited ? '✓' : ''}
+    </button>
+    <div class="time-block">
+      <div class="time-start">${ev.start ? formatTime(ev.start) : '—'}</div>
+      ${ev.end ? `<div class="time-end">to ${formatTime(ev.end)}</div>` : ''}
+      <div class="time-date">${dateStr}</div>
+    </div>
+    <div class="event-info">
+      <h3>${escHtml(ev.host)}${isNew ? '<span class="new-badge">New</span>' : ''}</h3>
+      <div class="event-meta">
+        ${ev.address ? `<div class="meta-item"><span class="meta-icon">📌</span>${escHtml(ev.address)}</div>` : ''}
+        ${ev.notes ? `<div class="meta-item"><span class="meta-icon">📝</span>${escHtml(ev.notes)}</div>` : ''}
+      </div>
+      ${conflict ? `<div class="conflict-badge">⚠️ Time conflict detected</div>` : ''}
+      ${(() => {
+        if (!ev.end || !ev.start) return '';
+        const dep = getDepartureTime().split(':').map(Number);
+        const depMins = dep[0]*60 + dep[1];
+        const endMins = ev.end.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+        const startMins = ev.start.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+        const endAdj = endMins <= startMins ? endMins + 1440 : endMins;
+        if (depMins >= endAdj) return '<div class="conflict-badge" style="background:rgba(220,50,50,0.1);color:#C0392B;border-color:rgba(220,50,50,0.3)">⛔ Closes before you leave home</div>';
+        if (depMins > startMins && (endAdj - depMins) <= 30) return '<div class="conflict-badge" style="background:rgba(255,165,0,0.12);color:#B8700A;border-color:rgba(255,165,0,0.3)">⏰ Cutting it close — closes soon after you leave</div>';
+        return '';
+      })()}
+    </div>
+    <div class="event-actions">
+      ${ev.image_url ? `<button class="icon-btn" title="View invitation" onclick="openLightbox('${escAttr(ev.image_url)}')">📸</button>` : ''}
+      <button class="icon-btn" title="Edit" onclick="openEdit('${ev.id}')">✏️</button>
+      <button class="icon-btn delete" title="Delete" onclick="deleteEvent('${ev.id}')">🚫</button>
+      ${ev.address ? `<button class="icon-btn" title="Open in Maps" onclick="openMaps('${escAttr(ev.address)}')">📍</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function formatTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')}${h>=12?'pm':'am'}`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+// ─── EDIT ─────────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  editingId = id;
+  document.getElementById('editHost').value = ev.host || '';
+  document.getElementById('editDate').value = ev.date || '';
+  document.getElementById('editStart').value = ev.start || '';
+  document.getElementById('editEnd').value = ev.end || '';
+  document.getElementById('editAddress').value = ev.address || '';
+  document.getElementById('editNotes').value = ev.notes || '';
+  document.getElementById('editModal').classList.add('open');
+}
+
+async function saveEdit() {
+  const { error } = await db.from('eid_events').update({
+    host: document.getElementById('editHost').value.trim(),
+    date: document.getElementById('editDate').value || null,
+    start_time: document.getElementById('editStart').value || null,
+    end_time: document.getElementById('editEnd').value || null,
+    address: document.getElementById('editAddress').value.trim() || null,
+    notes: document.getElementById('editNotes').value.trim() || null,
+  }).eq('id', editingId);
+
+  if (error) { showToast('✖️ Could not update'); return; }
+  closeModal();
+  showToast('✓ Visit updated!');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+  editingId = null;
+}
+
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModal')) closeModal();
+});
+
+// ─── DELETE ───────────────────────────────────────────────────────────────────
+async function deleteEvent(id) {
+  if (!confirm('Remove this visit from the family schedule?')) return;
+  const { error } = await db.from('eid_events').delete().eq('id', id);
+  if (error) { showToast('✖️ Could not delete'); return; }
+  showToast('🚫 Visit removed');
+}
+
+// ─── VISITED TOGGLE ──────────────────────────────────────────────────────────
+async function toggleVisited(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  const newVal = !ev.visited;
+  // Optimistic update
+  ev.visited = newVal;
+  renderSchedule();
+  // Persist to Supabase
+  const { error } = await db.from('eid_events').update({ visited: newVal }).eq('id', id);
+  if (error) {
+    ev.visited = !newVal; // revert
+    renderSchedule();
+    showToast('✖️ Could not save');
+  } else {
+    showToast(newVal ? '✅ Marked as visited!' : '↩️ Marked as not visited');
+  }
+}
+
+// ─── EID DATE SETTING ────────────────────────────────────────────────────────
+const EID_DATE_KEY       = 'eid_date_setting';
+const DEPARTURE_TIME_KEY = 'eid_departure_time';
+
+function getDepartureTime() {
+  return localStorage.getItem(DEPARTURE_TIME_KEY) || '12:00';
+}
+function saveDepartureTime() {
+  const val = document.getElementById('departureTimeInput').value;
+  if (!val) return;
+  localStorage.setItem(DEPARTURE_TIME_KEY, val);
+  showToast('🕐 Departure time saved!');
+}
+
+const HOME_ADDRESS_KEY    = 'eid_home_address';
+const HOME_GEOCODE_KEY    = 'eid_home_geocode';
+
+function getHomeAddress() { return localStorage.getItem(HOME_ADDRESS_KEY) || ''; }
+function getHomeGeocode() {
+  const s = localStorage.getItem(HOME_GEOCODE_KEY);
+  return s ? JSON.parse(s) : null;
+}
+
+async function saveHomeAddress() {
+  const val = document.getElementById('homeAddressInput').value.trim();
+  if (!val) return;
+  const statusEl = document.getElementById('homeAddressStatus');
+  statusEl.textContent = 'Geocoding...';
+  statusEl.style.color = '#6B6B6B';
+  // Geocode the home address
+  const geo = await geocodeAddress(val);
+  if (geo) {
+    localStorage.setItem(HOME_ADDRESS_KEY, val);
+    localStorage.setItem(HOME_GEOCODE_KEY, JSON.stringify({ lat: geo.lat, lng: geo.lng }));
+    statusEl.textContent = '✓ Saved — ' + val;
+    statusEl.style.color = '#4CAF50';
+    showToast('🏠 Home address saved!');
+  } else {
+    statusEl.textContent = '⚠️ Could not find that address — try adding suburb/city';
+    statusEl.style.color = '#C0392B';
+  }
+}
+
+function getEidDate() {
+  return localStorage.getItem(EID_DATE_KEY) || '2025-03-30';
+}
+
+function saveEidDate() {
+  const val = document.getElementById('settingsEidDate').value;
+  if (val) {
+    localStorage.setItem(EID_DATE_KEY, val);
+    updateEidDateHint();
+    showToast('🌙 Eid date saved!');
+  }
+}
+
+function clearEidDate() {
+  localStorage.removeItem(EID_DATE_KEY);
+  document.getElementById('settingsEidDate').value = '';
+  updateEidDateHint();
+}
+
+function updateEidDateHint() {
+  const val = getEidDate();
+  const hint = document.getElementById('eidDateHint');
+  if (!hint) return;
+  if (val) {
+    const label = new Date(val + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    hint.textContent = `"Eid" dates will resolve to ${label}`;
+  } else {
+    hint.textContent = 'No Eid date set — "Eid" dates will be left blank';
+  }
+}
+
+// ─── SETTINGS MODAL ──────────────────────────────────────────────────────────
+function openSettings() {
+  // Populate departure time
+  document.getElementById('departureTimeInput').value = getDepartureTime();
+  const homeAddr = getHomeAddress();
+  document.getElementById('homeAddressInput').value = homeAddr;
+  const homeStatus = document.getElementById('homeAddressStatus');
+  homeStatus.textContent = homeAddr ? '✓ ' + homeAddr : '';
+  homeStatus.style.color = homeAddr ? '#4CAF50' : '#6B6B6B';
+  // Populate Eid date field
+  const savedDate = localStorage.getItem(EID_DATE_KEY) || '';
+  document.getElementById('settingsEidDate').value = savedDate;
+  updateEidDateHint();
+
+  // Populate API key status
+  const key = getApiKey();
+  const dot = document.getElementById('settingsKeyDot');
+  const label = document.getElementById('settingsKeyLabel');
+  if (key) {
+    dot.style.background = '#4CAF50';
+    label.textContent = key.slice(0,14) + '••••••••' + key.slice(-4);
+  } else {
+    dot.style.background = '#E05A5A';
+    label.textContent = 'No API key saved';
+  }
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function saveApiKeyFromSettings() {
+  const input = document.getElementById('settingsApiInput');
+  const key = input.value.trim();
+  if (!key) { showToast('⚠️ Please enter your API key'); return; }
+  if (!key.startsWith('sk-ant-')) { showToast('⚠️ Keys start with sk-ant-'); return; }
+  localStorage.setItem(API_KEY_STORAGE, key);
+  input.value = '';
+  updateApiUi();
+  openSettings(); // refresh the display
+  showToast('🔑 API key saved!');
+}
+
+document.getElementById('settingsModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('settingsModal')) closeSettings();
+});
+
+// ─── MAPS & LIGHTBOX ─────────────────────────────────────────────────────────
+function openMaps(address) {
+  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
+}
+
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+
+// ─── MAP & ROUTING ─────────────────────────────────────────────────────────────
+let leafletMap = null;
+let mapMarkers = [];
+let geocodedEvents = [];   // ALL geocoded events across all days
+let geocodeCache = {};     // address -> {lat, lng}  (persists across tab switches)
+let routePolyline = null;
+let activeDay = null;      // currently selected date string (YYYY-MM-DD) or 'all'
+
+// ── Map init ─────────────────────────────────────────────────────────────────
+function initMap() {
+  if (leafletMap) return;
+  document.getElementById('mapEmpty').style.display = 'none';
+  leafletMap = L.map('mapContainer', {
+    center: [-36.8509, 174.7645],
+    zoom: 11,
+    zoomControl: true,
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+}
+
+// ── Geocode (with cache) ──────────────────────────────────────────────────────
+async function geocodeAddress(address) {
+  if (!address) return null;
+  const key = address.trim().toLowerCase();
+  if (geocodeCache[key]) return geocodeCache[key];
+
+  // Build a series of progressively broader query attempts
+  const attempts = buildGeoQueries(address);
+
+  for (const query of attempts) {
+    try {
+      await new Promise(r => setTimeout(r, 300)); // small gap between retries
+      const q = encodeURIComponent(query);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=3&countrycodes=nz&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en', 'User-Agent': 'EidSchedulerApp/1.0' } }
+      );
+      const data = await res.json();
+      if (data && data.length > 0) {
+        // Prefer results that are actually in NZ
+        const nz = data.find(r => r.display_name.includes('New Zealand')) || data[0];
+        const result = { lat: parseFloat(nz.lat), lng: parseFloat(nz.lon), display: nz.display_name };
+        geocodeCache[key] = result;
+        console.log(`Geocoded "${address}" via query: "${query}" → ${result.lat}, ${result.lng}`);
+        return result;
+      }
+    } catch(e) { console.warn('Geocode attempt failed:', query, e); }
+  }
+
+  console.warn('All geocode attempts failed for:', address);
+  return null;
+}
+
+// Build multiple query strategies from most specific to broadest
+function buildGeoQueries(address) {
+  const cleaned = address.trim();
+  const queries = [];
+
+  // Strategy 1: exact address + Auckland, New Zealand
+  queries.push(cleaned + ', Auckland, New Zealand');
+
+  // Strategy 2: exact address + New Zealand (no city)
+  queries.push(cleaned + ', New Zealand');
+
+  // Strategy 3: if address has a suburb at end, try just street + suburb + Auckland
+  // e.g. "11 Sagitta Drive Flatbush" → "11 Sagitta Drive, Flatbush, Auckland"
+  const parts = cleaned.split(/[,\n]+/).map(p => p.trim()).filter(Boolean);
+  if (parts.length === 1) {
+    // Single line — try splitting on last word as suburb
+    const words = cleaned.split(' ');
+    if (words.length >= 3) {
+      const lastWord = words[words.length - 1];
+      const streetPart = words.slice(0, -1).join(' ');
+      // Only treat as suburb if last word is capitalised (likely a place name)
+      if (/^[A-Z]/.test(lastWord)) {
+        queries.push(`${streetPart}, ${lastWord}, Auckland, New Zealand`);
+        queries.push(`${streetPart}, ${lastWord}, New Zealand`);
+      }
+      // Also try last two words as suburb
+      if (words.length >= 4) {
+        const lastTwo = words.slice(-2).join(' ');
+        const streetPart2 = words.slice(0, -2).join(' ');
+        if (/^[A-Z]/.test(lastTwo)) {
+          queries.push(`${streetPart2}, ${lastTwo}, Auckland, New Zealand`);
+        }
+      }
+    }
+  } else if (parts.length >= 2) {
+    // Multi-part address — try appending Auckland to each combo
+    queries.push(parts.join(', ') + ', Auckland, New Zealand');
+    queries.push(parts[0] + ', ' + parts[parts.length - 1] + ', Auckland, New Zealand');
+  }
+
+  // Strategy 4: structured search — split number/street/suburb
+  const streetMatch = cleaned.match(/^(\d+[a-zA-Z]?)\s+(.+)/);
+  if (streetMatch) {
+    const houseNum = streetMatch[1];
+    const rest = streetMatch[2];
+    const restWords = rest.split(' ');
+    // Try with just the street name (no house number) if short address
+    if (restWords.length <= 3) {
+      queries.push(`${rest}, Auckland, New Zealand`);
+    }
+  }
+
+  // Strategy 5: broadest — just the raw address with NZ bounding box
+  // (handled by countrycodes=nz param above, but try without city constraint)
+  queries.push(cleaned);
+
+  // Deduplicate while preserving order
+  return [...new Set(queries)];
+}
+
+// ── Custom marker icon ────────────────────────────────────────────────────────
+function makeMarkerIcon(number, color = '#1A5C6B') {
+  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 0 C7.163 0 0 7.163 0 16 C0 24 16 40 16 40 C16 40 32 24 32 16 C32 7.163 24.837 0 16 0Z" fill="${color}" stroke="white" stroke-width="2"/>
+    <text x="16" y="20" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="DM Sans,sans-serif" font-size="12" font-weight="700">${number}</text>
+  </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40] });
+}
+
+// ── Build day tabs ────────────────────────────────────────────────────────────
+function buildDayTabs(eventsWithGeo) {
+  const tabsEl = document.getElementById('dayTabs');
+
+  // Collect unique dates that have geocoded events
+  const dates = [...new Set(eventsWithGeo.map(e => e.event.date || 'undated'))].sort((a, b) => {
+    if (a === 'undated') return 1;
+    if (b === 'undated') return -1;
+    return a.localeCompare(b);
+  });
+
+  if (dates.length === 0) { tabsEl.style.display = 'none'; return; }
+  tabsEl.style.display = 'flex';
+
+  // If no active day set, pick first
+  if (!activeDay || !dates.includes(activeDay)) {
+    activeDay = dates[0];
+  }
+
+  const tabs = dates.length > 1 ? ['all', ...dates] : dates;
+
+  tabsEl.innerHTML = tabs.map(d => {
+    const count = d === 'all'
+      ? eventsWithGeo.length
+      : eventsWithGeo.filter(e => (e.event.date || 'undated') === d).length;
+
+    const label = d === 'all'
+      ? 'All Days'
+      : d === 'undated'
+      ? 'No Date'
+      : new Date(d + 'T12:00:00').toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    const isActive = d === activeDay;
+    return `<button class="day-tab ${isActive ? 'active' : ''}" onclick="switchDay('${d}')">${label}<span class="tab-count">${count}</span></button>`;
+  }).join('');
+}
+
+// ── Switch to a day tab ───────────────────────────────────────────────────────
+function switchDay(day) {
+  activeDay = day;
+
+  // Update tab active states
+  document.querySelectorAll('.day-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === '' || btn.onclick.toString().includes(`'${day}'`));
+  });
+  // Re-render tabs cleanly
+  buildDayTabs(geocodedEvents);
+
+  // Clear route
+  if (routePolyline) { routePolyline.remove(); routePolyline = null; }
+  document.getElementById('routePanel').classList.remove('visible');
+
+  // Show filtered markers
+  showMarkersForDay(day);
+}
+
+// ── Show markers for a given day ──────────────────────────────────────────────
+function showMarkersForDay(day) {
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+
+  const filtered = day === 'all'
+    ? geocodedEvents
+    : geocodedEvents.filter(e => (e.event.date || 'undated') === day);
+
+  const bounds = [];
+  filtered.forEach((p, i) => {
+    const ev = p.event;
+    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
+    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
+    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i + 1, '#1A5C6B') }).addTo(leafletMap);
+    marker.bindPopup(`
+      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
+        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
+        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📌 ${escHtml(ev.address)}</div>
+        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
+        ${ev.notes ? `<div style="font-size:0.78rem;color:#6B6B6B;margin-top:0.3rem;">📝 ${escHtml(ev.notes)}</div>` : ''}
+      </div>
+    `, { maxWidth: 260 });
+    mapMarkers.push(marker);
+    bounds.push([p.lat, p.lng]);
+  });
+
+  if (bounds.length > 0) leafletMap.fitBounds(bounds, { padding: [50, 50] });
+
+  const routeBtn = document.getElementById('routeBtn');
+  routeBtn.disabled = filtered.length < 2;
+}
+
+// ── Main buildMap function ────────────────────────────────────────────────────
+async function buildMap(forceRefresh = false) {
+  const withAddress = events.filter(e => e.address && e.address.trim());
+  if (!withAddress.length) {
+    showToast('⚠️ No visits have addresses yet');
+    return;
+  }
+
+  if (forceRefresh) geocodeCache = {}; // clear cache on manual refresh
+
+  const statusEl = document.getElementById('geocodingStatus');
+  const msgEl = document.getElementById('geocodingMsg');
+  const routeBtn = document.getElementById('routeBtn');
+  const refreshBtn = document.getElementById('refreshMapBtn');
+  statusEl.style.display = 'flex';
+  routeBtn.disabled = true;
+  refreshBtn.disabled = true;
+
+  initMap();
+
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  geocodedEvents = [];
+  if (routePolyline) { routePolyline.remove(); routePolyline = null; }
+  document.getElementById('routePanel').classList.remove('visible');
+
+  // Geocode all addresses (uses cache automatically)
+  let geocoded = 0;
+  for (let i = 0; i < withAddress.length; i++) {
+    const ev = withAddress[i];
+    // Use stored lat/lng from Supabase if available — no API call needed
+    if (ev.lat && ev.lng) {
+      geocodedEvents.push({ event: ev, lat: ev.lat, lng: ev.lng });
+      geocoded++;
+      msgEl.textContent = `Loaded ${i+1} of ${withAddress.length}: ${ev.host}`;
+      continue;
+    }
+
+    const cacheKey = ev.address.trim().toLowerCase();
+    const fromCache = !!geocodeCache[cacheKey];
+
+    msgEl.textContent = `Locating ${i+1} of ${withAddress.length}: ${ev.host}…`;
+    const geo = await geocodeAddress(ev.address);
+
+    // Delay between addresses to respect Nominatim rate limits
+    if (!fromCache) await new Promise(r => setTimeout(r, 1200));
+
+    if (geo) {
+      geocodedEvents.push({ event: ev, lat: geo.lat, lng: geo.lng });
+      geocoded++;
+      // Save lat/lng to Supabase so we don't need to geocode again
+      if (!ev.lat || !ev.lng || Math.abs(ev.lat - geo.lat) > 0.0001) {
+        ev.lat = geo.lat;
+        ev.lng = geo.lng;
+        db.from('eid_events').update({ lat: geo.lat, lng: geo.lng }).eq('id', ev.id).then(() => {});
+      }
+    }
+  }
+
+  statusEl.style.display = 'none';
+  refreshBtn.disabled = false;
+
+  const failed = withAddress.filter(ev =>
+    !geocodedEvents.find(g => g.event.id === ev.id)
+  );
+
+  if (geocodedEvents.length === 0) {
+    showToast('✖️ Could not locate any addresses — try adding suburb names');
+    return;
+  }
+
+  // Build day tabs and show first day
+  buildDayTabs(geocodedEvents);
+  showMarkersForDay(activeDay);
+
+  const days = [...new Set(geocodedEvents.map(e => e.event.date||'undated'))].length;
+  if (failed.length > 0) {
+    const names = failed.map(e => e.host).join(', ');
+    showToast(`📍 ${geocoded} mapped · ⚠️ Could not find: ${names}`);
+    // Also show inline warning
+    const statusEl = document.getElementById('geocodingStatus');
+    const msgEl = document.getElementById('geocodingMsg');
+    statusEl.style.display = 'flex';
+    statusEl.style.background = 'rgba(224,90,90,0.1)';
+    msgEl.style.color = '#C0392B';
+    msgEl.textContent = `⚠️ ${failed.length} address${failed.length>1?'es':''} not found: ${failed.map(e=>e.address).join(' · ')} — try adding suburb/city`;
+    setTimeout(() => { statusEl.style.display = 'none'; statusEl.style.background=''; msgEl.style.color=''; }, 8000);
+  } else {
+    showToast(`📍 All ${geocoded} visit${geocoded !== 1 ? 's' : ''} mapped!`);
+  }
+}
+
+// ── Smart time + proximity route ─────────────────────────────────────────────
+// Clustering by TIME OVERLAP not just start proximity:
+//   Two stops are in the same flexible group if you could visit either one first
+//   i.e. stop A's end time is after stop B's start time (they genuinely overlap).
+// Within each group, try all permutations and pick the lowest-cost order using:
+//   - travel time (30 km/h suburban estimate)
+//   - late-arrival penalty (arriving after start time)
+//   - slight early-arrival penalty (arriving >15 min before start)
+// Fill 2hr+ gaps between groups with nearest untimed stops.
+const GAP_THRESHOLD_MINS = 120;
+const AVG_SPEED_KMH      = 30;
+const MIN_VISIT_MINS     = 25; // assumed visit duration if no end time
+
+// Cache of real driving durations from OSRM: key = "lat1,lng1|lat2,lng2"
+const drivingCache = {};
+
+function drivingCacheKey(p1, p2) {
+  return `${p1.lat.toFixed(5)},${p1.lng.toFixed(5)}|${p2.lat.toFixed(5)},${p2.lng.toFixed(5)}`;
+}
+
+// Returns driving time in minutes — uses cached OSRM data if available, haversine fallback
+function travelTimeMins(p1, p2) {
+  const key = drivingCacheKey(p1, p2);
+  if (drivingCache[key] !== undefined) return drivingCache[key];
+  // Fallback: haversine estimate at 30km/h
+  return (haversine(p1.lat, p1.lng, p2.lat, p2.lng) / AVG_SPEED_KMH) * 60;
+}
+
+// Fetch a full driving duration matrix from OSRM for all points (including home)
+async function fetchDrivingMatrix(points) {
+  if (points.length < 2) return;
+  try {
+    const coords = points.map(p => `${p.lng},${p.lat}`).join(';');
+    const url = `https://router.project-osrm.org/table/v1/driving/${coords}?annotations=duration,distance`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.code !== 'Ok') return;
+    // Store all durations in cache (seconds → minutes)
+    data.durations.forEach((row, i) => {
+      row.forEach((secs, j) => {
+        if (i !== j && secs != null) {
+          const key = drivingCacheKey(points[i], points[j]);
+          drivingCache[key] = secs / 60;
+        }
+      });
+    });
+    console.log(`OSRM: cached ${points.length * (points.length-1)} driving times`);
+  } catch(e) {
+    console.warn('OSRM unavailable, using haversine fallback', e.message);
+  }
+}
+
+// ── Suburb + proximity clustering ────────────────────────────────────────────
+// Extract the suburb from an address string
+function extractSuburb(addr) {
+  if (!addr) return '';
+  const parts = addr.replace(/^\d+\//, '').split(',').map(s => s.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i].replace(/\b\d{4}\b/, '').trim();
+    if (p.length > 2) return p.toLowerCase();
+  }
+  return addr.toLowerCase();
+}
+
+function nearestNeighbourRoute(points) {
+  if (points.length <= 1) return points;
+
+  const timeToMins = t => {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + (m || 0);
+  };
+
+  const endOf = p => {
+    const e = timeToMins(p.event.end);
+    const s = timeToMins(p.event.start) || 0;
+    if (e === null) return s + MIN_VISIT_MINS;
+    return e <= s ? e + 1440 : e;
+  };
+
+  const nnOrder = (pool, fromLat, fromLng) => {
+    const rem = [...pool]; const out = [];
+    let lat = fromLat, lng = fromLng;
+    while (rem.length) {
+      let bi = 0, bd = Infinity;
+      rem.forEach((p, i) => { const d = haversine(lat, lng, p.lat, p.lng); if (d < bd) { bd = d; bi = i; } });
+      const nx = rem.splice(bi, 1)[0]; out.push(nx); lat = nx.lat; lng = nx.lng;
+    }
+    return out;
+  };
+
+  const departMins = timeToMins(getDepartureTime()) || 0;
+
+  const homeGeoScore = getHomeGeocode();
+  // Score in consistent units: MINUTES of travel time
+  // travelTimeMins uses real OSRM data if cached, haversine fallback otherwise
+  const scoreOrder = (order, fromLat, fromLng) => {
+    let cost = 0, lat = fromLat, lng = fromLng, now = departMins;
+    for (let i = 0; i < order.length; i++) {
+      const p     = order[i];
+      const trav  = travelTimeMins({ lat, lng }, p);
+      const arrival = now + trav;
+      const end   = endOf(p);
+      cost += trav
+            + Math.max(0, arrival - end) * 500;  // missed window — very bad
+      // Extra penalty: if this stop is far from home AND it's in the second half
+      // of the route, discourage it — we want far-from-home stops done early
+      if (homeGeoScore && i >= order.length / 2) {
+        const distFromHome = travelTimeMins(p, homeGeoScore);
+        cost += distFromHome * (i / order.length) * 2;
+      }
+      const openTime = timeToMins(p.event.start) || arrival;
+      now = Math.max(arrival, openTime) + MIN_VISIT_MINS;
+      lat = p.lat; lng = p.lng;
+    }
+    // Return home — heavily weighted so last stop must be close to home
+    if (homeGeoScore) {
+      cost += travelTimeMins({ lat, lng }, homeGeoScore) * 8;
+    }
+    return cost;
+  };
+
+  const optimiseGroup = (group, fromLat, fromLng) => {
+    if (group.length === 1) return group;
+    if (group.length <= 6) {
+      const permute = a => a.length <= 1 ? [a] :
+        a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
+      let best = null, bestCost = Infinity;
+      for (const perm of permute(group)) {
+        const c = scoreOrder(perm, fromLat, fromLng);
+        if (c < bestCost) { bestCost = c; best = perm; }
+      }
+      return best;
+    }
+    let best = [...group], bestCost = scoreOrder(best, fromLat, fromLng);
+    for (let trial = 0; trial < 3000; trial++) {
+      const candidate = [...group];
+      for (let i = candidate.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidate[i], candidate[j]] = [candidate[j], candidate[i]];
+      }
+      const cost = scoreOrder(candidate, fromLat, fromLng);
+      if (cost < bestCost) { bestCost = cost; best = candidate; }
+    }
+    return best;
+  };
+
+  const timed    = [...points].filter(p => p.event.start);
+  const flexPool = [...points].filter(p => !p.event.start);
+
+  if (timed.length === 0) return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
+
+  // ── Suburb + proximity clustering using Union-Find ────────────────────────
+  // Two stops belong to the same cluster if:
+  //   (same suburb OR within 3km of each other) AND their time windows overlap
+  const SUBURB_PROX_KM = 5;
+  const parent = timed.map((_, i) => i);
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const union = (a, b) => { parent[find(a)] = find(b); };
+
+  for (let i = 0; i < timed.length; i++) {
+    for (let j = i + 1; j < timed.length; j++) {
+      const a = timed[i], b = timed[j];
+      const subA = extractSuburb(a.event.address), subB = extractSuburb(b.event.address);
+      const sameSuburb = subA && subB && subA === subB;
+      const nearEnough = haversine(a.lat, a.lng, b.lat, b.lng) <= SUBURB_PROX_KM;
+      const timeOverlap = timeToMins(a.event.start) < endOf(b) && timeToMins(b.event.start) < endOf(a);
+      if ((sameSuburb || nearEnough) && timeOverlap) union(i, j);
+    }
+  }
+
+  // Build clusters from union-find groups
+  const clusterMap = {};
+  timed.forEach((p, i) => {
+    const root = find(i);
+    if (!clusterMap[root]) clusterMap[root] = [];
+    clusterMap[root].push(p);
+  });
+
+  // Sort clusters by their earliest start time
+  const clusters = Object.values(clusterMap).sort((a, b) =>
+    Math.min(...a.map(p => timeToMins(p.event.start) || 0)) -
+    Math.min(...b.map(p => timeToMins(p.event.start) || 0))
+  );
+
+  // ── Order clusters by travel efficiency ──────────────────────────────────
+  const centroid = cluster => ({
+    lat: cluster.reduce((s, p) => s + p.lat, 0) / cluster.length,
+    lng: cluster.reduce((s, p) => s + p.lng, 0) / cluster.length,
+    earliest: Math.min(...cluster.map(p => timeToMins(p.event.start) || 0))
+  });
+
+  // Start from home if geocoded, otherwise first cluster's first stop
+  const homeGeo = getHomeGeocode();
+  const orderedClusters = [];
+  const remainingClusters = [...clusters];
+  let lat = homeGeo ? homeGeo.lat : remainingClusters[0][0].lat;
+  let lng = homeGeo ? homeGeo.lng : remainingClusters[0][0].lng;
+  let now = departMins;
+
+  while (remainingClusters.length) {
+    // Candidates: clusters reachable within 2hrs from now
+    let candidates = remainingClusters.filter(c => centroid(c).earliest <= now + 120);
+    if (candidates.length === 0) {
+      // Jump to earliest remaining cluster
+      remainingClusters.sort((a,b) => centroid(a).earliest - centroid(b).earliest);
+      candidates = [remainingClusters[0]];
+    }
+    // Pick nearest centroid among candidates
+    let best = candidates[0], bestDist = Infinity;
+    candidates.forEach(c => {
+      const cen = centroid(c);
+      const d = haversine(lat, lng, cen.lat, cen.lng);
+      if (d < bestDist) { bestDist = d; best = c; }
+    });
+    orderedClusters.push(best);
+    remainingClusters.splice(remainingClusters.indexOf(best), 1);
+    const cen = centroid(best);
+    now = Math.max(now + (haversine(lat, lng, cen.lat, cen.lng) / AVG_SPEED_KMH) * 60, cen.earliest) + MIN_VISIT_MINS * best.length;
+    lat = cen.lat; lng = cen.lng;
+  }
+
+  // ── Build final route ─────────────────────────────────────────────────────
+  const route = [];
+  for (let ci = 0; ci < orderedClusters.length; ci++) {
+    const cluster = orderedClusters[ci];
+    const isLastCluster = ci === orderedClusters.length - 1;
+    const fromLat = route.length ? route[route.length-1].lat : (homeGeo ? homeGeo.lat : orderedClusters[0][0].lat);
+    const fromLng = route.length ? route[route.length-1].lng : (homeGeo ? homeGeo.lng : orderedClusters[0][0].lng);
+
+    // For the last cluster, re-score with home as the destination so the
+    // stop closest to home naturally ends up last
+    if (isLastCluster && homeGeo && cluster.length > 1) {
+      // Try all permutations of the last cluster, picking the one whose
+      // last stop is closest to home (by travel time)
+      const permute = a => a.length <= 1 ? [a] :
+        a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
+      const perms = cluster.length <= 6 ? permute(cluster) : (() => {
+        const ps = [];
+        for (let t = 0; t < 500; t++) {
+          const c = [...cluster];
+          for (let i=c.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[c[i],c[j]]=[c[j],c[i]];}
+          ps.push(c);
+        }
+        return ps;
+      })();
+
+      let bestPerm = cluster, bestScore = Infinity;
+      for (const perm of perms) {
+        const lastStop = perm[perm.length - 1];
+        const distToHome = travelTimeMins(lastStop, homeGeo);
+        const routeCost = scoreOrder(perm, fromLat, fromLng);
+        // Combined score: route efficiency + heavily weight last stop → home
+        const score = routeCost + distToHome * 8;
+        if (score < bestScore) { bestScore = score; bestPerm = perm; }
+      }
+      route.push(...bestPerm);
+    } else {
+      route.push(...optimiseGroup(cluster, fromLat, fromLng));
+    }
+
+    // Fill 2hr+ gaps with nearest untimed stop
+    if (flexPool.length > 0) {
+      const lastStart = timeToMins(route[route.length-1].event.start) || 0;
+      const nextCluster = orderedClusters[ci + 1];
+      const nextStart = nextCluster ? Math.min(...nextCluster.map(p => timeToMins(p.event.start) || 0)) : Infinity;
+      if (nextStart - lastStart >= GAP_THRESHOLD_MINS) {
+        const last = route[route.length-1];
+        let bi = 0, bd = Infinity;
+        flexPool.forEach((p, i) => { const d = haversine(last.lat, last.lng, p.lat, p.lng); if (d < bd) { bd = d; bi = i; } });
+        route.push(flexPool.splice(bi, 1)[0]);
+      }
+    }
+  }
+
+  if (flexPool.length > 0) {
+    const last = route[route.length-1];
+    route.push(...nnOrder(flexPool, last.lat, last.lng));
+  }
+
+  return route;
+}
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ── Calculate route for active day ───────────────────────────────────────────
+async function calcRoute() {
+  const pool = activeDay === 'all'
+    ? geocodedEvents
+    : geocodedEvents.filter(e => (e.event.date || 'undated') === activeDay);
+
+  if (pool.length < 2) return;
+
+  // Fetch real driving times from OSRM before optimising
+  // Build list of all points including home if available
+  const homeGeoMatrix = getHomeGeocode();
+  const matrixPoints = homeGeoMatrix
+    ? [homeGeoMatrix, ...pool]
+    : [...pool];
+  showToast('🗺️ Calculating driving times...');
+  await fetchDrivingMatrix(matrixPoints);
+
+  const route = nearestNeighbourRoute(pool);
+
+  // Draw polyline
+  if (routePolyline) routePolyline.remove();
+  const latlngs = route.map(p => [p.lat, p.lng]);
+  routePolyline = L.polyline(latlngs, {
+    color: '#C9A84C', weight: 3.5, opacity: 0.9, dashArray: '8, 6',
+  }).addTo(leafletMap);
+
+  // Renumber markers in route order
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  route.forEach((p, i) => {
+    const ev = p.event;
+    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
+    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
+    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i+1, i === 0 ? '#2A8A9F' : '#1A5C6B') }).addTo(leafletMap);
+    marker.bindPopup(`
+      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
+        <div style="font-size:0.7rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem;">Stop ${i+1}${i===0?' · Start':''}</div>
+        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
+        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📌 ${escHtml(ev.address)}</div>
+        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
+      </div>
+    `, { maxWidth: 260 });
+    mapMarkers.push(marker);
+  });
+
+  leafletMap.fitBounds(latlngs, { padding: [40, 40] });
+
+  // Route stop list
+  const dayLabel = activeDay === 'all' ? 'All Days' : activeDay === 'undated' ? 'No Date'
+    : new Date(activeDay + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('routeDayLabel').textContent = dayLabel;
+
+  // Calculate estimated arrival times using departure time
+  const depMins = (() => { const [h,m] = getDepartureTime().split(':').map(Number); return h*60+m; })();
+  const homeGeoRoute = getHomeGeocode();
+  const arrivals = [];
+  let now = depMins, lat = homeGeoRoute ? homeGeoRoute.lat : route[0].lat, lng = homeGeoRoute ? homeGeoRoute.lng : route[0].lng;
+  route.forEach(p => {
+    const dist = haversine(lat, lng, p.lat, p.lng);
+    const trav = (dist / AVG_SPEED_KMH) * 60;
+    const arrival = now + trav;
+    const startMins = p.event.start ? p.event.start.split(':').map(Number).reduce((h,m)=>h*60+m,0) : arrival;
+    const endMins = (() => {
+      if (!p.event.end) return startMins + 60;
+      const e = p.event.end.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+      return e <= startMins ? e + 1440 : e;
+    })();
+    const arrH = Math.floor(arrival/60), arrM = Math.round(arrival%60);
+    const arrStr = arrH + ':' + String(arrM).padStart(2,'0');
+    const isMissed = arrival > endMins;
+    const isLate   = arrival > startMins;
+    const isTight  = !isMissed && (endMins - arrival) < 30;
+    arrivals.push({ arrStr, isMissed, isLate, isTight });
+    now = Math.max(arrival, startMins) + MIN_VISIT_MINS;
+    lat = p.lat; lng = p.lng;
+  });
+
+  // Add home as final display stop if geocoded
+  const homeGeoDisplay = getHomeGeocode();
+  const homeAddrDisplay = getHomeAddress();
+  const displayRoute = homeGeoDisplay ? [...route, { event: { host: '🏠 Home', address: homeAddrDisplay }, lat: homeGeoDisplay.lat, lng: homeGeoDisplay.lng, isHome: true }] : route;
+
+  // Extend arrivals to include home
+  if (homeGeoDisplay) {
+    const lastStop = route[route.length - 1];
+    const lastArr = arrivals[arrivals.length - 1];
+    const lastDepMins = (() => {
+      const p = lastStop;
+      const lastArrMins = depMins + route.slice(0, route.length).reduce((acc, p2, i) => {
+        return acc; // already calculated in arrivals
+      }, 0);
+      // Use the last now value — approximate from last arrival
+      const lastArrival = (() => {
+        let n = depMins, la = homeGeoRoute ? homeGeoRoute.lat : route[0].lat, lo = homeGeoRoute ? homeGeoRoute.lng : route[0].lng;
+        for (const rp of route) {
+          const t = (haversine(la, lo, rp.lat, rp.lng) / AVG_SPEED_KMH) * 60;
+          const arr = n + t;
+          const open = rp.event.start ? rp.event.start.split(':').map(Number).reduce((h,m)=>h*60+m,0) : arr;
+          n = Math.max(arr, open) + MIN_VISIT_MINS;
+          la = rp.lat; lo = rp.lng;
+        }
+        return n;
+      })();
+      const homeTrav = (haversine(lastStop.lat, lastStop.lng, homeGeoDisplay.lat, homeGeoDisplay.lng) / AVG_SPEED_KMH) * 60;
+      const homeArrival = lastArrival + homeTrav;
+      const homeArrH = Math.floor(homeArrival/60), homeArrM = Math.round(homeArrival%60);
+      arrivals.push({ arrStr: homeArrH + ':' + String(homeArrM).padStart(2,'0'), isMissed: false, isLate: false, isTight: false });
+    })();
+  }
+
+  document.getElementById('routeStops').innerHTML = displayRoute.map((p, i) => {
+    const { arrStr, isMissed, isLate, isTight } = arrivals[i];
+    const flag = isMissed ? ' <span style="color:#C0392B;font-size:0.65rem;">⛔ missed</span>'
+               : isTight  ? ' <span style="color:#B8700A;font-size:0.65rem;">⏰ tight</span>'
+               : isLate   ? ' <span style="color:#B8700A;font-size:0.65rem;">⚠️ late</span>'
+               : '';
+    return (i > 0 ? '<span class="route-arrow">→</span>' : '')
+      + '<div class="route-stop' + (isMissed ? '" style="opacity:0.5' : '') + '">'
+      + '<div class="route-stop-num">' + (i+1) + '</div>'
+      + '<div>'
+      + escHtml(p.event.host)
+      + '<div style="font-size:0.65rem;color:#6B6B6B;margin-top:1px;">~' + formatTime(arrStr) + flag + '</div>'
+      + '</div></div>';
+  }).join('');
+
+  // Google Maps URL
+  const homeAddr = getHomeAddress();
+  const origin = encodeURIComponent(homeAddr || route[0].event.address);
+  const dest = encodeURIComponent(homeAddr || route[route.length-1].event.address);
+  const allStops = homeAddr ? route : route.slice(1);
+  const waypointStops = homeAddr ? route : route.slice(1,-1);
+  const waypoints = waypointStops.map(p => encodeURIComponent(p.event.address)).join('|');
+  document.getElementById('routeGmapsLink').href =
+    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
+
+  document.getElementById('routePanel').classList.add('visible');
+  showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
+}
+
+// ─── FIX YEARS ───────────────────────────────────────────────────────────────
+async function fixWrongYears() {
+  const eidYear = new Date(getEidDate() + 'T12:00:00').getFullYear() || 2025;
+  const toFix = events.filter(ev => {
+    if (!ev.date) return false;
+    const y = new Date(ev.date + 'T12:00:00').getFullYear();
+    return y !== eidYear;
+  });
+  if (!toFix.length) {
+    showToast('All dates already have the correct year');
+    return;
+  }
+  let fixed = 0;
+  for (const ev of toFix) {
+    const d = new Date(ev.date + 'T12:00:00');
+    const corrected = `${eidYear}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const { error } = await db.from('eid_events').update({ date: corrected }).eq('id', ev.id);
+    if (!error) { ev.date = corrected; fixed++; }
+  }
+  renderSchedule();
+  buildMap();
+  showToast(`Fixed ${fixed} date${fixed !== 1 ? 's' : ''} to ${eidYear}`);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+updateApiUi();
+updateEidDateHint();
+loadEvents().then(() => {
+  subscribeRealtime();
+  // Auto-build map if there are events with addresses
+  setTimeout(() => {
+    if (events.some(e => e.address)) buildMap();
+  }, 500);
+});
+</script>
+
+</body>
+</html>
