@@ -2658,14 +2658,23 @@ async function buildMap(forceRefresh = false) {
   }
 }
 
-// ── Time-aware + cluster-optimised route ─────────────────────────────────────
+// ── Smart time + proximity route ─────────────────────────────────────────────
 // Strategy:
-//   1. Group stops into time clusters (within 30 min of each other = same window).
-//   2. Within each cluster, order stops by nearest-neighbour from the previous stop.
-//   3. Between clusters >2 hrs apart, fill gaps with nearest flexible/untimed stops.
-//   4. No times at all → pure nearest-neighbour.
-const GAP_THRESHOLD_MINS  = 120; // gap big enough to squeeze in an extra stop
-const CLUSTER_WINDOW_MINS = 30;  // stops within 30 min of each other = same cluster
+//   1. Estimate travel time between stops (avg 30 km/h in suburban driving).
+//   2. For each stop, work out the LATEST you can depart the previous stop and
+//      still arrive on time — this is the "departure window".
+//   3. If two stops overlap in their departure windows and one is closer, visit
+//      the closer one first (you can leave the first stop later).
+//   4. Cluster stops within 30 min of each other and order by proximity.
+//   5. Fill 2hr+ gaps with nearest untimed stops.
+const GAP_THRESHOLD_MINS  = 120;
+const CLUSTER_WINDOW_MINS = 30;
+const AVG_SPEED_KMH       = 30;  // suburban driving speed for travel time estimate
+
+function travelTimeMins(p1, p2) {
+  const distKm = haversine(p1.lat, p1.lng, p2.lat, p2.lng);
+  return (distKm / AVG_SPEED_KMH) * 60;
+}
 
 function nearestNeighbourRoute(points) {
   if (points.length <= 1) return points;
@@ -2676,7 +2685,7 @@ function nearestNeighbourRoute(points) {
     return h * 60 + (m || 0);
   };
 
-  // Nearest-neighbour helper: order an array of points from a given start location
+  // Nearest-neighbour helper from a given lat/lng
   const nnOrder = (pool, fromLat, fromLng) => {
     const remaining = [...pool];
     const ordered = [];
@@ -2694,16 +2703,61 @@ function nearestNeighbourRoute(points) {
     return ordered;
   };
 
-  const timed   = [...points].filter(p => p.event.start)
-                             .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
+  // Optimise order within a cluster using departure-window logic:
+  // If I can leave stop A late enough to still make stop B on time,
+  // and B is closer to where I came from, visit B first.
+  const optimiseCluster = (cluster, fromLat, fromLng) => {
+    if (cluster.length === 1) return cluster;
+
+    // Try all permutations for small clusters (≤5), nearest-neighbour for larger
+    if (cluster.length <= 5) {
+      const permute = arr => arr.length <= 1 ? [arr] :
+        arr.flatMap((v, i) => permute([...arr.slice(0,i), ...arr.slice(i+1)]).map(p => [v, ...p]));
+
+      let bestOrder = null, bestCost = Infinity;
+      for (const perm of permute(cluster)) {
+        // Cost = total travel distance + penalty for arriving before start time
+        let cost = 0;
+        let lat = fromLat, lng = fromLng;
+        let currentMins = timeToMins(perm[0].event.start) || 0;
+
+        for (let i = 0; i < perm.length; i++) {
+          const travel = travelTimeMins({ lat, lng }, perm[i]);
+          const arrivalMins = currentMins + travel;
+          const startMins = timeToMins(perm[i].event.start) || arrivalMins;
+
+          // Penalty: arriving more than 15 min before start (too early = awkward)
+          const earlyPenalty = Math.max(0, startMins - arrivalMins - 15) * 2;
+          // Penalty: arriving after start (late to a visit)
+          const latePenalty  = Math.max(0, arrivalMins - startMins) * 5;
+
+          cost += travel + earlyPenalty + latePenalty;
+
+          // Depart as late as possible: stay until end time if known, otherwise 45 min visit
+          const endMins = timeToMins(perm[i].event.end) || (startMins + 45);
+          currentMins = Math.max(arrivalMins, startMins) + Math.min(45, endMins - startMins);
+          lat = perm[i].lat; lng = perm[i].lng;
+        }
+
+        if (cost < bestCost) { bestCost = cost; bestOrder = perm; }
+      }
+      return bestOrder;
+    }
+
+    // Fallback for large clusters: nearest-neighbour
+    return nnOrder(cluster, fromLat, fromLng);
+  };
+
+  const timed    = [...points].filter(p => p.event.start)
+                              .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
   const flexPool = [...points].filter(p => !p.event.start);
 
-  // No timed stops at all — pure nearest-neighbour
+  // No timed stops — pure nearest-neighbour
   if (timed.length === 0) {
     return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
   }
 
-  // Group timed stops into clusters of similar start times
+  // Group into clusters (stops within 30 min of each other)
   const clusters = [];
   let cluster = [timed[0]];
   for (let i = 1; i < timed.length; i++) {
@@ -2718,24 +2772,24 @@ function nearestNeighbourRoute(points) {
   }
   clusters.push(cluster);
 
-  // Build final route: optimise within each cluster, fill gaps between clusters
+  // Build route cluster by cluster
   const route = [];
 
   for (let ci = 0; ci < clusters.length; ci++) {
     const fromLat = route.length ? route[route.length-1].lat : clusters[0][0].lat;
     const fromLng = route.length ? route[route.length-1].lng : clusters[0][0].lng;
 
-    // Order this cluster's stops by nearest-neighbour from where we currently are
-    const orderedCluster = nnOrder(clusters[ci], fromLat, fromLng);
+    // Smart-order this cluster
+    const orderedCluster = optimiseCluster(clusters[ci], fromLat, fromLng);
     route.push(...orderedCluster);
 
-    // Check gap to next cluster — if large enough, fill with nearest flex stop
+    // Fill gaps between clusters with nearest flex stop
     if (ci < clusters.length - 1 && flexPool.length > 0) {
-      const lastMins = timeToMins(route[route.length-1].event.start);
-      const nextMins = timeToMins(clusters[ci+1][0].event.start);
+      const lastMins = timeToMins(route[route.length-1].event.start) || 0;
+      const nextMins = timeToMins(clusters[ci+1][0].event.start) || 0;
       const gap = nextMins - lastMins;
 
-      while (flexPool.length > 0 && gap >= GAP_THRESHOLD_MINS) {
+      if (gap >= GAP_THRESHOLD_MINS) {
         const last = route[route.length - 1];
         let bi = 0, bd = Infinity;
         flexPool.forEach((p, i) => {
@@ -2743,12 +2797,11 @@ function nearestNeighbourRoute(points) {
           if (d < bd) { bd = d; bi = i; }
         });
         route.push(flexPool.splice(bi, 1)[0]);
-        break; // one fill per gap; re-evaluate next iteration
       }
     }
   }
 
-  // Any remaining flex stops — append nearest-neighbour at the end
+  // Remaining flex stops — nearest-neighbour from last stop
   if (flexPool.length > 0) {
     const last = route[route.length - 1];
     route.push(...nnOrder(flexPool, last.lat, last.lng));
