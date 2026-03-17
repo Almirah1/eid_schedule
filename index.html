@@ -2658,13 +2658,14 @@ async function buildMap(forceRefresh = false) {
   }
 }
 
-// ── Time-aware + gap-fill route ──────────────────────────────────────────────
+// ── Time-aware + cluster-optimised route ─────────────────────────────────────
 // Strategy:
-//   1. Start at the earliest timed stop.
-//   2. When the next timed stop is >2 hours away, fill the gap by visiting the
-//      geographically nearest unvisited stop (timed or untimed) that can fit.
-//   3. Untimed stops with no natural gap get inserted at the cheapest detour.
-const GAP_THRESHOLD_MINS = 120; // 2 hours
+//   1. Group stops into time clusters (within 30 min of each other = same window).
+//   2. Within each cluster, order stops by nearest-neighbour from the previous stop.
+//   3. Between clusters >2 hrs apart, fill gaps with nearest flexible/untimed stops.
+//   4. No times at all → pure nearest-neighbour.
+const GAP_THRESHOLD_MINS  = 120; // gap big enough to squeeze in an extra stop
+const CLUSTER_WINDOW_MINS = 30;  // stops within 30 min of each other = same cluster
 
 function nearestNeighbourRoute(points) {
   if (points.length <= 1) return points;
@@ -2675,65 +2676,82 @@ function nearestNeighbourRoute(points) {
     return h * 60 + (m || 0);
   };
 
-  // Sort all timed points chronologically; untimed go into a flexible pool
-  const timed   = [...points].filter(p => p.event.start)
-                             .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
-  const untimed = [...points].filter(p => !p.event.start);
-
-  if (timed.length === 0) {
-    // No times at all — pure nearest-neighbour from first point
-    const remaining = [...untimed];
-    const route = [remaining.shift()];
+  // Nearest-neighbour helper: order an array of points from a given start location
+  const nnOrder = (pool, fromLat, fromLng) => {
+    const remaining = [...pool];
+    const ordered = [];
+    let lat = fromLat, lng = fromLng;
     while (remaining.length) {
-      const last = route[route.length - 1];
       let bi = 0, bd = Infinity;
       remaining.forEach((p, i) => {
-        const d = haversine(last.lat, last.lng, p.lat, p.lng);
+        const d = haversine(lat, lng, p.lat, p.lng);
         if (d < bd) { bd = d; bi = i; }
       });
-      route.push(remaining.splice(bi, 1)[0]);
+      const next = remaining.splice(bi, 1)[0];
+      ordered.push(next);
+      lat = next.lat; lng = next.lng;
     }
-    return route;
-  }
-
-  // Build route by walking through timed stops and filling large gaps
-  const route = [];
-  const timedQueue   = [...timed];
-  const flexPool     = [...untimed]; // untimed, always flexible
-  // timed stops that haven't been placed yet also become flex candidates
-  // once we've passed their natural slot — we track separately
-
-  const placeNext = () => {
-    // Always start with the earliest timed stop
-    if (route.length === 0) {
-      route.push(timedQueue.shift());
-      return;
-    }
-
-    const last       = route[route.length - 1];
-    const lastMins   = timeToMins(last.event.start);
-    const nextTimed  = timedQueue[0];
-    const nextMins   = nextTimed ? timeToMins(nextTimed.event.start) : null;
-    const gap        = (nextMins !== null && lastMins !== null) ? nextMins - lastMins : 0;
-
-    // If we have a gap >= 2 hours (or no more timed stops), try to fill with nearest flexible stop
-    const canFill = flexPool.length > 0 && (nextTimed === undefined || gap >= GAP_THRESHOLD_MINS);
-
-    if (canFill) {
-      // Pick nearest unvisited flexible stop
-      let bi = 0, bd = Infinity;
-      flexPool.forEach((p, i) => {
-        const d = haversine(last.lat, last.lng, p.lat, p.lng);
-        if (d < bd) { bd = d; bi = i; }
-      });
-      route.push(flexPool.splice(bi, 1)[0]);
-    } else if (nextTimed) {
-      route.push(timedQueue.shift());
-    }
+    return ordered;
   };
 
-  while (timedQueue.length || flexPool.length) {
-    placeNext();
+  const timed   = [...points].filter(p => p.event.start)
+                             .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
+  const flexPool = [...points].filter(p => !p.event.start);
+
+  // No timed stops at all — pure nearest-neighbour
+  if (timed.length === 0) {
+    return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
+  }
+
+  // Group timed stops into clusters of similar start times
+  const clusters = [];
+  let cluster = [timed[0]];
+  for (let i = 1; i < timed.length; i++) {
+    const prev = timeToMins(timed[i-1].event.start);
+    const curr = timeToMins(timed[i].event.start);
+    if (curr - prev <= CLUSTER_WINDOW_MINS) {
+      cluster.push(timed[i]);
+    } else {
+      clusters.push(cluster);
+      cluster = [timed[i]];
+    }
+  }
+  clusters.push(cluster);
+
+  // Build final route: optimise within each cluster, fill gaps between clusters
+  const route = [];
+
+  for (let ci = 0; ci < clusters.length; ci++) {
+    const fromLat = route.length ? route[route.length-1].lat : clusters[0][0].lat;
+    const fromLng = route.length ? route[route.length-1].lng : clusters[0][0].lng;
+
+    // Order this cluster's stops by nearest-neighbour from where we currently are
+    const orderedCluster = nnOrder(clusters[ci], fromLat, fromLng);
+    route.push(...orderedCluster);
+
+    // Check gap to next cluster — if large enough, fill with nearest flex stop
+    if (ci < clusters.length - 1 && flexPool.length > 0) {
+      const lastMins = timeToMins(route[route.length-1].event.start);
+      const nextMins = timeToMins(clusters[ci+1][0].event.start);
+      const gap = nextMins - lastMins;
+
+      while (flexPool.length > 0 && gap >= GAP_THRESHOLD_MINS) {
+        const last = route[route.length - 1];
+        let bi = 0, bd = Infinity;
+        flexPool.forEach((p, i) => {
+          const d = haversine(last.lat, last.lng, p.lat, p.lng);
+          if (d < bd) { bd = d; bi = i; }
+        });
+        route.push(flexPool.splice(bi, 1)[0]);
+        break; // one fill per gap; re-evaluate next iteration
+      }
+    }
+  }
+
+  // Any remaining flex stops — append nearest-neighbour at the end
+  if (flexPool.length > 0) {
+    const last = route[route.length - 1];
+    route.push(...nnOrder(flexPool, last.lat, last.lng));
   }
 
   return route;
