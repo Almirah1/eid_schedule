@@ -1821,6 +1821,8 @@ function normalizeRow(row) {
     notes: row.notes || '',
     image_url: row.image_url || null,
     visited: row.visited || false,
+    lat: row.lat || null,
+    lng: row.lng || null,
   };
 }
 
@@ -2690,6 +2692,14 @@ async function buildMap(forceRefresh = false) {
   let geocoded = 0;
   for (let i = 0; i < withAddress.length; i++) {
     const ev = withAddress[i];
+    // Use stored lat/lng from Supabase if available — no API call needed
+    if (ev.lat && ev.lng) {
+      geocodedEvents.push({ event: ev, lat: ev.lat, lng: ev.lng });
+      geocoded++;
+      msgEl.textContent = `Loaded ${i+1} of ${withAddress.length}: ${ev.host}`;
+      continue;
+    }
+
     const cacheKey = ev.address.trim().toLowerCase();
     const fromCache = !!geocodeCache[cacheKey];
 
@@ -2697,12 +2707,17 @@ async function buildMap(forceRefresh = false) {
     const geo = await geocodeAddress(ev.address);
 
     // Delay between addresses to respect Nominatim rate limits
-    // (geocodeAddress handles its own internal retry delays)
     if (!fromCache) await new Promise(r => setTimeout(r, 1200));
 
     if (geo) {
       geocodedEvents.push({ event: ev, lat: geo.lat, lng: geo.lng });
       geocoded++;
+      // Save lat/lng to Supabase so we don't need to geocode again
+      if (!ev.lat || !ev.lng || Math.abs(ev.lat - geo.lat) > 0.0001) {
+        ev.lat = geo.lat;
+        ev.lng = geo.lng;
+        db.from('eid_events').update({ lat: geo.lat, lng: geo.lng }).eq('id', ev.id).then(() => {});
+      }
     }
   }
 
@@ -2834,20 +2849,21 @@ function nearestNeighbourRoute(points) {
   const departMins = timeToMins(getDepartureTime()) || 0;
 
   const homeGeoScore = getHomeGeocode();
+  // Score in consistent units: MINUTES of travel time
+  // travelTimeMins uses real OSRM data if cached, haversine fallback otherwise
   const scoreOrder = (order, fromLat, fromLng) => {
     let cost = 0, lat = fromLat, lng = fromLng, now = departMins;
     for (const p of order) {
       const trav    = travelTimeMins({ lat, lng }, p);
       const arrival = now + trav;
       const end     = endOf(p);
-      const dist    = haversine(lat, lng, p.lat, p.lng);
-      cost += dist
-            + Math.max(0, arrival - end) * 500;  // missed window — very bad
+      cost += trav                                   // actual drive time (mins)
+            + Math.max(0, arrival - end) * 500;      // missed window — very bad
       const openTime = timeToMins(p.event.start) || arrival;
       now = Math.max(arrival, openTime) + MIN_VISIT_MINS;
       lat = p.lat; lng = p.lng;
     }
-    // Add cost of returning home at the end
+    // Add return-home drive time — same units, fully comparable
     if (homeGeoScore) {
       cost += travelTimeMins({ lat, lng }, homeGeoScore);
     }
