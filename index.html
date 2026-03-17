@@ -2752,8 +2752,44 @@ const GAP_THRESHOLD_MINS = 120;
 const AVG_SPEED_KMH      = 30;
 const MIN_VISIT_MINS     = 25; // assumed visit duration if no end time
 
+// Cache of real driving durations from OSRM: key = "lat1,lng1|lat2,lng2"
+const drivingCache = {};
+
+function drivingCacheKey(p1, p2) {
+  return `${p1.lat.toFixed(5)},${p1.lng.toFixed(5)}|${p2.lat.toFixed(5)},${p2.lng.toFixed(5)}`;
+}
+
+// Returns driving time in minutes — uses cached OSRM data if available, haversine fallback
 function travelTimeMins(p1, p2) {
+  const key = drivingCacheKey(p1, p2);
+  if (drivingCache[key] !== undefined) return drivingCache[key];
+  // Fallback: haversine estimate at 30km/h
   return (haversine(p1.lat, p1.lng, p2.lat, p2.lng) / AVG_SPEED_KMH) * 60;
+}
+
+// Fetch a full driving duration matrix from OSRM for all points (including home)
+async function fetchDrivingMatrix(points) {
+  if (points.length < 2) return;
+  try {
+    const coords = points.map(p => `${p.lng},${p.lat}`).join(';');
+    const url = `https://router.project-osrm.org/table/v1/driving/${coords}?annotations=duration,distance`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.code !== 'Ok') return;
+    // Store all durations in cache (seconds → minutes)
+    data.durations.forEach((row, i) => {
+      row.forEach((secs, j) => {
+        if (i !== j && secs != null) {
+          const key = drivingCacheKey(points[i], points[j]);
+          drivingCache[key] = secs / 60;
+        }
+      });
+    });
+    console.log(`OSRM: cached ${points.length * (points.length-1)} driving times`);
+  } catch(e) {
+    console.warn('OSRM unavailable, using haversine fallback', e.message);
+  }
 }
 
 // ── Suburb + proximity clustering ────────────────────────────────────────────
@@ -2802,14 +2838,15 @@ function nearestNeighbourRoute(points) {
     for (const p of order) {
       const trav    = travelTimeMins({ lat, lng }, p);
       const arrival = now + trav;
-      const start   = timeToMins(p.event.start) || arrival;
       const end     = endOf(p);
       const dist    = haversine(lat, lng, p.lat, p.lng);
+      // Only penalise arriving AFTER closing time — open homes have a window,
+      // arriving any time before close is fine. Never penalise arriving "late to start".
       cost += dist
-            + Math.max(0, arrival - end) * 200
-            + Math.max(0, arrival - start) * 4
-            + Math.max(0, start - arrival - 60) * 0.1;
-      now = Math.max(arrival, start) + MIN_VISIT_MINS;
+            + Math.max(0, arrival - end) * 500;  // missed window — very bad
+      // Advance time: if we arrive before the open time, we wait until it opens
+      const openTime = timeToMins(p.event.start) || arrival;
+      now = Math.max(arrival, openTime) + MIN_VISIT_MINS;
       lat = p.lat; lng = p.lng;
     }
     return cost;
@@ -2952,12 +2989,21 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
 
 // ── Calculate route for active day ───────────────────────────────────────────
-function calcRoute() {
+async function calcRoute() {
   const pool = activeDay === 'all'
     ? geocodedEvents
     : geocodedEvents.filter(e => (e.event.date || 'undated') === activeDay);
 
   if (pool.length < 2) return;
+
+  // Fetch real driving times from OSRM before optimising
+  // Build list of all points including home if available
+  const homeGeoMatrix = getHomeGeocode();
+  const matrixPoints = homeGeoMatrix
+    ? [homeGeoMatrix, ...pool]
+    : [...pool];
+  showToast('🗺️ Calculating driving times...');
+  await fetchDrivingMatrix(matrixPoints);
 
   const route = nearestNeighbourRoute(pool);
 
