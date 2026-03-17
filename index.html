@@ -53,7 +53,7 @@ z-index: 0;
 
 header {
 background: linear-gradient(135deg, var(–teal-dark) 0%, var(–teal) 60%, var(–teal-light) 100%);
-padding: 2rem 2rem 3rem;
+padding: 1.5rem 2rem 1.75rem;
 text-align: center;
 position: relative;
 overflow: hidden;
@@ -1426,7 +1426,7 @@ flex-shrink: 0;
       <span id="syncStatus">Connecting to family schedule…</span>
     </div>
   </div>
-  <button class="header-settings" onclick="openSettings()" title="Settings">⚙️</button>
+  <button class="header-settings" onclick="openSettings()" title="Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </header>
 
 <main>
@@ -1450,7 +1450,15 @@ flex-shrink: 0;
     <div id="apiStatusPill" class="api-status-pill missing"><span class="api-status-dot"></span> API key required for extraction</div>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept="image/*">
-      <div class="drop-icon">📸</div>
+      <div class="drop-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="14" width="40" height="28" rx="5" fill="#C9A84C" opacity="0.15" stroke="#C9A84C" stroke-width="2"/>
+            <circle cx="24" cy="28" r="8" fill="none" stroke="#C9A84C" stroke-width="2"/>
+            <circle cx="24" cy="28" r="4" fill="#C9A84C" opacity="0.5"/>
+            <path d="M17 14l2.5-4h5L27 14" stroke="#C9A84C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="37" cy="20" r="2" fill="#C9A84C"/>
+          </svg>
+        </div>
       <h3>Drop your invitation screenshots here</h3>
       <p>or click to browse — JPG, PNG, HEIC supported</p>
       <button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Choose Photo</button>
@@ -1573,7 +1581,7 @@ flex-shrink: 0;
 
 <div class="modal-overlay" id="settingsModal">
   <div class="modal" style="max-width:440px;">
-    <h3>⚙️ Settings</h3>
+    <h3><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</h3>
 
 ```
 <div class="settings-section">
@@ -2659,21 +2667,20 @@ async function buildMap(forceRefresh = false) {
 }
 
 // ── Smart time + proximity route ─────────────────────────────────────────────
-// Strategy:
-//   1. Estimate travel time between stops (avg 30 km/h in suburban driving).
-//   2. For each stop, work out the LATEST you can depart the previous stop and
-//      still arrive on time — this is the "departure window".
-//   3. If two stops overlap in their departure windows and one is closer, visit
-//      the closer one first (you can leave the first stop later).
-//   4. Cluster stops within 30 min of each other and order by proximity.
-//   5. Fill 2hr+ gaps with nearest untimed stops.
-const GAP_THRESHOLD_MINS  = 120;
-const CLUSTER_WINDOW_MINS = 30;
-const AVG_SPEED_KMH       = 30;  // suburban driving speed for travel time estimate
+// Clustering by TIME OVERLAP not just start proximity:
+//   Two stops are in the same flexible group if you could visit either one first
+//   i.e. stop A's end time is after stop B's start time (they genuinely overlap).
+// Within each group, try all permutations and pick the lowest-cost order using:
+//   - travel time (30 km/h suburban estimate)
+//   - late-arrival penalty (arriving after start time)
+//   - slight early-arrival penalty (arriving >15 min before start)
+// Fill 2hr+ gaps between groups with nearest untimed stops.
+const GAP_THRESHOLD_MINS = 120;
+const AVG_SPEED_KMH      = 30;
+const MIN_VISIT_MINS     = 45; // assumed visit duration if no end time
 
 function travelTimeMins(p1, p2) {
-  const distKm = haversine(p1.lat, p1.lng, p2.lat, p2.lng);
-  return (distKm / AVG_SPEED_KMH) * 60;
+  return (haversine(p1.lat, p1.lng, p2.lat, p2.lng) / AVG_SPEED_KMH) * 60;
 }
 
 function nearestNeighbourRoute(points) {
@@ -2682,128 +2689,114 @@ function nearestNeighbourRoute(points) {
   const timeToMins = t => {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);
+    // Handle midnight wrap: times like 00:00 as end time mean next day
     return h * 60 + (m || 0);
   };
 
-  // Nearest-neighbour helper from a given lat/lng
-  const nnOrder = (pool, fromLat, fromLng) => {
-    const remaining = [...pool];
-    const ordered = [];
-    let lat = fromLat, lng = fromLng;
-    while (remaining.length) {
-      let bi = 0, bd = Infinity;
-      remaining.forEach((p, i) => {
-        const d = haversine(lat, lng, p.lat, p.lng);
-        if (d < bd) { bd = d; bi = i; }
-      });
-      const next = remaining.splice(bi, 1)[0];
-      ordered.push(next);
-      lat = next.lat; lng = next.lng;
-    }
-    return ordered;
+  const endOf = p => {
+    const e = timeToMins(p.event.end);
+    const s = timeToMins(p.event.start) || 0;
+    if (e === null) return s + MIN_VISIT_MINS;
+    // end < start means it crosses midnight — add 24hrs
+    return e <= s ? e + 1440 : e;
   };
 
-  // Optimise order within a cluster using departure-window logic:
-  // If I can leave stop A late enough to still make stop B on time,
-  // and B is closer to where I came from, visit B first.
-  const optimiseCluster = (cluster, fromLat, fromLng) => {
-    if (cluster.length === 1) return cluster;
-
-    // Try all permutations for small clusters (≤5), nearest-neighbour for larger
-    if (cluster.length <= 5) {
-      const permute = arr => arr.length <= 1 ? [arr] :
-        arr.flatMap((v, i) => permute([...arr.slice(0,i), ...arr.slice(i+1)]).map(p => [v, ...p]));
-
-      let bestOrder = null, bestCost = Infinity;
-      for (const perm of permute(cluster)) {
-        // Cost = total travel distance + penalty for arriving before start time
-        let cost = 0;
-        let lat = fromLat, lng = fromLng;
-        let currentMins = timeToMins(perm[0].event.start) || 0;
-
-        for (let i = 0; i < perm.length; i++) {
-          const travel = travelTimeMins({ lat, lng }, perm[i]);
-          const arrivalMins = currentMins + travel;
-          const startMins = timeToMins(perm[i].event.start) || arrivalMins;
-
-          // Penalty: arriving more than 15 min before start (too early = awkward)
-          const earlyPenalty = Math.max(0, startMins - arrivalMins - 15) * 2;
-          // Penalty: arriving after start (late to a visit)
-          const latePenalty  = Math.max(0, arrivalMins - startMins) * 5;
-
-          cost += travel + earlyPenalty + latePenalty;
-
-          // Depart as late as possible: stay until end time if known, otherwise 45 min visit
-          const endMins = timeToMins(perm[i].event.end) || (startMins + 45);
-          currentMins = Math.max(arrivalMins, startMins) + Math.min(45, endMins - startMins);
-          lat = perm[i].lat; lng = perm[i].lng;
-        }
-
-        if (cost < bestCost) { bestCost = cost; bestOrder = perm; }
-      }
-      return bestOrder;
+  // Nearest-neighbour helper
+  const nnOrder = (pool, fromLat, fromLng) => {
+    const rem = [...pool]; const out = [];
+    let lat = fromLat, lng = fromLng;
+    while (rem.length) {
+      let bi = 0, bd = Infinity;
+      rem.forEach((p, i) => { const d = haversine(lat, lng, p.lat, p.lng); if (d < bd) { bd = d; bi = i; } });
+      const nx = rem.splice(bi, 1)[0]; out.push(nx); lat = nx.lat; lng = nx.lng;
     }
+    return out;
+  };
 
-    // Fallback for large clusters: nearest-neighbour
-    return nnOrder(cluster, fromLat, fromLng);
+  // Score a permutation of stops starting from fromLat/fromLng
+  const scorePerm = (perm, fromLat, fromLng) => {
+    let cost = 0, lat = fromLat, lng = fromLng;
+    let now = timeToMins(perm[0].event.start) || 0;
+    for (const p of perm) {
+      const travel   = travelTimeMins({ lat, lng }, p);
+      const arrival  = now + travel;
+      const start    = timeToMins(p.event.start) || arrival;
+      const end      = endOf(p);
+      const waitMins = Math.max(0, start - arrival);
+      cost += travel
+            + Math.max(0, waitMins - 15) * 2   // penalty: waiting >15 min (too early)
+            + Math.max(0, arrival - start) * 5; // penalty: arriving late
+      now = Math.max(arrival, start) + Math.min(MIN_VISIT_MINS, end - start);
+      lat = p.lat; lng = p.lng;
+    }
+    return cost;
+  };
+
+  // Optimise a group by trying all permutations (up to 6 stops)
+  const optimiseGroup = (group, fromLat, fromLng) => {
+    if (group.length === 1) return group;
+    if (group.length > 6) return nnOrder(group, fromLat, fromLng);
+    const permute = a => a.length <= 1 ? [a] :
+      a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
+    let best = null, bestCost = Infinity;
+    for (const perm of permute(group)) {
+      const c = scorePerm(perm, fromLat, fromLng);
+      if (c < bestCost) { bestCost = c; best = perm; }
+    }
+    return best;
   };
 
   const timed    = [...points].filter(p => p.event.start)
                               .sort((a, b) => timeToMins(a.event.start) - timeToMins(b.event.start));
   const flexPool = [...points].filter(p => !p.event.start);
 
-  // No timed stops — pure nearest-neighbour
-  if (timed.length === 0) {
-    return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
-  }
+  if (timed.length === 0) return nnOrder(flexPool, flexPool[0].lat, flexPool[0].lng);
 
-  // Group into clusters (stops within 30 min of each other)
+  // ── Build overlap clusters ────────────────────────────────────────────────
+  // Two stops belong to the same cluster if the earlier one's window is still
+  // open when the later one starts — i.e. you could visit either one first.
   const clusters = [];
-  let cluster = [timed[0]];
+  let cur = [timed[0]];
+  let curWindowEnd = endOf(timed[0]); // latest end time in current cluster
+
   for (let i = 1; i < timed.length; i++) {
-    const prev = timeToMins(timed[i-1].event.start);
-    const curr = timeToMins(timed[i].event.start);
-    if (curr - prev <= CLUSTER_WINDOW_MINS) {
-      cluster.push(timed[i]);
+    const nextStart = timeToMins(timed[i].event.start);
+    if (nextStart <= curWindowEnd) {
+      // Overlaps — same cluster, expand the window
+      cur.push(timed[i]);
+      curWindowEnd = Math.max(curWindowEnd, endOf(timed[i]));
     } else {
-      clusters.push(cluster);
-      cluster = [timed[i]];
+      clusters.push(cur);
+      cur = [timed[i]];
+      curWindowEnd = endOf(timed[i]);
     }
   }
-  clusters.push(cluster);
+  clusters.push(cur);
 
-  // Build route cluster by cluster
+  // ── Build route ───────────────────────────────────────────────────────────
   const route = [];
 
   for (let ci = 0; ci < clusters.length; ci++) {
     const fromLat = route.length ? route[route.length-1].lat : clusters[0][0].lat;
     const fromLng = route.length ? route[route.length-1].lng : clusters[0][0].lng;
 
-    // Smart-order this cluster
-    const orderedCluster = optimiseCluster(clusters[ci], fromLat, fromLng);
-    route.push(...orderedCluster);
+    route.push(...optimiseGroup(clusters[ci], fromLat, fromLng));
 
-    // Fill gaps between clusters with nearest flex stop
+    // Fill gap to next cluster with nearest untimed stop if gap >= 2hrs
     if (ci < clusters.length - 1 && flexPool.length > 0) {
-      const lastMins = timeToMins(route[route.length-1].event.start) || 0;
-      const nextMins = timeToMins(clusters[ci+1][0].event.start) || 0;
-      const gap = nextMins - lastMins;
-
-      if (gap >= GAP_THRESHOLD_MINS) {
-        const last = route[route.length - 1];
+      const lastStart = timeToMins(route[route.length-1].event.start) || 0;
+      const nextStart = timeToMins(clusters[ci+1][0].event.start) || 0;
+      if (nextStart - lastStart >= GAP_THRESHOLD_MINS) {
+        const last = route[route.length-1];
         let bi = 0, bd = Infinity;
-        flexPool.forEach((p, i) => {
-          const d = haversine(last.lat, last.lng, p.lat, p.lng);
-          if (d < bd) { bd = d; bi = i; }
-        });
+        flexPool.forEach((p, i) => { const d = haversine(last.lat, last.lng, p.lat, p.lng); if (d < bd) { bd = d; bi = i; } });
         route.push(flexPool.splice(bi, 1)[0]);
       }
     }
   }
 
-  // Remaining flex stops — nearest-neighbour from last stop
   if (flexPool.length > 0) {
-    const last = route[route.length - 1];
+    const last = route[route.length-1];
     route.push(...nnOrder(flexPool, last.lat, last.lng));
   }
 
