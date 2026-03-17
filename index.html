@@ -1585,6 +1585,14 @@ flex-shrink: 0;
 
 ```
 <div class="settings-section">
+  <h4>🏠 Home Address</h4>
+  <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">Your starting point for route planning.</p>
+  <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+    <input type="text" id="homeAddressInput" placeholder="e.g. 12 Example Street, Auckland" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;">
+    <button class="api-save-btn" onclick="saveHomeAddress()">Save</button>
+  </div>
+  <p id="homeAddressStatus" style="font-size:0.75rem;color:#6B6B6B;margin-bottom:1.25rem;min-height:1rem;"></p>
+
   <h4>🕐 Departure Time</h4>
   <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">What time are you leaving home on Eid day?</p>
   <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1.25rem;">
@@ -2305,6 +2313,35 @@ function saveDepartureTime() {
   showToast('🕐 Departure time saved!');
 }
 
+const HOME_ADDRESS_KEY    = 'eid_home_address';
+const HOME_GEOCODE_KEY    = 'eid_home_geocode';
+
+function getHomeAddress() { return localStorage.getItem(HOME_ADDRESS_KEY) || ''; }
+function getHomeGeocode() {
+  const s = localStorage.getItem(HOME_GEOCODE_KEY);
+  return s ? JSON.parse(s) : null;
+}
+
+async function saveHomeAddress() {
+  const val = document.getElementById('homeAddressInput').value.trim();
+  if (!val) return;
+  const statusEl = document.getElementById('homeAddressStatus');
+  statusEl.textContent = 'Geocoding...';
+  statusEl.style.color = '#6B6B6B';
+  // Geocode the home address
+  const geo = await geocodeAddress(val);
+  if (geo) {
+    localStorage.setItem(HOME_ADDRESS_KEY, val);
+    localStorage.setItem(HOME_GEOCODE_KEY, JSON.stringify({ lat: geo.lat, lng: geo.lng }));
+    statusEl.textContent = '✓ Saved — ' + val;
+    statusEl.style.color = '#4CAF50';
+    showToast('🏠 Home address saved!');
+  } else {
+    statusEl.textContent = '⚠️ Could not find that address — try adding suburb/city';
+    statusEl.style.color = '#C0392B';
+  }
+}
+
 function getEidDate() {
   return localStorage.getItem(EID_DATE_KEY) || '2025-03-30';
 }
@@ -2340,6 +2377,11 @@ function updateEidDateHint() {
 function openSettings() {
   // Populate departure time
   document.getElementById('departureTimeInput').value = getDepartureTime();
+  const homeAddr = getHomeAddress();
+  document.getElementById('homeAddressInput').value = homeAddr;
+  const homeStatus = document.getElementById('homeAddressStatus');
+  homeStatus.textContent = homeAddr ? '✓ ' + homeAddr : '';
+  homeStatus.style.color = homeAddr ? '#4CAF50' : '#6B6B6B';
   // Populate Eid date field
   const savedDate = localStorage.getItem(EID_DATE_KEY) || '';
   document.getElementById('settingsEidDate').value = savedDate;
@@ -2837,19 +2879,18 @@ function nearestNeighbourRoute(points) {
   );
 
   // ── Order clusters by travel efficiency ──────────────────────────────────
-  // For each cluster, compute its centroid, then order clusters by
-  // nearest-centroid from current position (respecting earliest start time)
   const centroid = cluster => ({
     lat: cluster.reduce((s, p) => s + p.lat, 0) / cluster.length,
     lng: cluster.reduce((s, p) => s + p.lng, 0) / cluster.length,
     earliest: Math.min(...cluster.map(p => timeToMins(p.event.start) || 0))
   });
 
-  // Greedily order clusters: from current position, pick nearest cluster
-  // whose earliest start is reachable (within 2hrs of current time)
+  // Start from home if geocoded, otherwise first cluster's first stop
+  const homeGeo = getHomeGeocode();
   const orderedClusters = [];
   const remainingClusters = [...clusters];
-  let lat = remainingClusters[0][0].lat, lng = remainingClusters[0][0].lng;
+  let lat = homeGeo ? homeGeo.lat : remainingClusters[0][0].lat;
+  let lng = homeGeo ? homeGeo.lng : remainingClusters[0][0].lng;
   let now = departMins;
 
   while (remainingClusters.length) {
@@ -2877,8 +2918,8 @@ function nearestNeighbourRoute(points) {
   // ── Build final route ─────────────────────────────────────────────────────
   const route = [];
   for (const cluster of orderedClusters) {
-    const fromLat = route.length ? route[route.length-1].lat : orderedClusters[0][0].lat;
-    const fromLng = route.length ? route[route.length-1].lng : orderedClusters[0][0].lng;
+    const fromLat = route.length ? route[route.length-1].lat : (homeGeo ? homeGeo.lat : orderedClusters[0][0].lat);
+    const fromLng = route.length ? route[route.length-1].lng : (homeGeo ? homeGeo.lng : orderedClusters[0][0].lng);
     route.push(...optimiseGroup(cluster, fromLat, fromLng));
 
     // Fill 2hr+ gaps with nearest untimed stop
@@ -2955,8 +2996,9 @@ function calcRoute() {
 
   // Calculate estimated arrival times using departure time
   const depMins = (() => { const [h,m] = getDepartureTime().split(':').map(Number); return h*60+m; })();
+  const homeGeoRoute = getHomeGeocode();
   const arrivals = [];
-  let now = depMins, lat = route[0].lat, lng = route[0].lng;
+  let now = depMins, lat = homeGeoRoute ? homeGeoRoute.lat : route[0].lat, lng = homeGeoRoute ? homeGeoRoute.lng : route[0].lng;
   route.forEach(p => {
     const dist = haversine(lat, lng, p.lat, p.lng);
     const trav = (dist / AVG_SPEED_KMH) * 60;
