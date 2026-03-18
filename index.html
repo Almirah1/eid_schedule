@@ -3426,11 +3426,19 @@ function haversine(lat1, lng1, lat2, lng2) {
 
 // ── Calculate route for active day ───────────────────────────────────────────
 async function calcRoute() {
-  const pool = activeDay === 'all'
+  const allForDay = activeDay === 'all'
     ? geocodedEvents
     : geocodedEvents.filter(e => (e.event.date || 'undated') === activeDay);
 
-  if (pool.length < 2) return;
+  // Exclude already-visited stops from routing
+  const pool = allForDay.filter(e => !e.event.visited);
+
+  if (pool.length < 2) {
+    if (allForDay.length >= 2 && pool.length < 2) {
+      showToast('All stops visited! Mark some as unvisited to re-route.');
+    }
+    return;
+  }
 
   // Fetch real driving times from OSRM before optimising
   // Build list of all points including home if available
