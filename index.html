@@ -3199,10 +3199,13 @@ async function fetchDrivingMatrix(points) {
 // Extract the suburb from an address string
 function extractSuburb(addr) {
   if (!addr) return '';
+  // Skip these — too broad to be useful as suburb identifiers
+  const SKIP = new Set(['auckland', 'new zealand', 'nz', 'north island', 'south island',
+    'manukau', 'waitakere', 'north shore', 'city', 'region', 'metro']);
   const parts = addr.replace(/^\d+\//, '').split(',').map(s => s.trim()).filter(Boolean);
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i].replace(/\b\d{4}\b/, '').trim();
-    if (p.length > 2) return p.toLowerCase();
+    if (p.length > 2 && !SKIP.has(p.toLowerCase())) return p.toLowerCase();
   }
   return addr.toLowerCase();
 }
@@ -3355,8 +3358,11 @@ function nearestNeighbourRoute(points) {
       const s = timeToMins(p.event.start) || 0;
       const e = endOf(p);
       const trav = travelTimeMins({ lat, lng }, p);
-      // Include if reachable within 2hrs, OR if it's a must-visit within closing time
-      return (s <= now + 120 && (now + trav) < e)
+      const distKm = haversine(lat, lng, p.lat, p.lng);
+      // Wider window for nearby stops — worth waiting rather than backtracking later
+      const windowMins = distKm <= 5 ? 180 : 120;
+      // Include if reachable within window, OR if it's a must-visit within closing time
+      return (s <= now + windowMins && (now + trav) < e)
           || (p.event.must_visit && (now + trav) < e);
     });
 
@@ -3379,22 +3385,29 @@ function nearestNeighbourRoute(points) {
       if (candidates.length === 0) candidates = [...remaining];
     }
 
-    // Score each candidate: drive time + penalty for being far from home late in route
+    // Score each candidate: drive time + wait time + penalties
     let best = candidates[0], bestScore = Infinity;
     const progress = route.length / (route.length + remaining.length);
     for (const p of candidates) {
       const trav = travelTimeMins({ lat, lng }, p);
+      const distKm = haversine(lat, lng, p.lat, p.lng);
       const arrival = now + trav;
       const start = timeToMins(p.event.start) || arrival;
       const end = endOf(p);
       const isMust = p.event.must_visit;
+      // Wait time: how long we'd sit before the stop opens
+      const waitMins = Math.max(0, start - arrival);
+      // Nearby stops: waiting costs much less than a long detour back later
+      // The wait penalty scales with distance — far stops shouldn't be waited for
+      const waitPenalty = waitMins * (distKm <= 3 ? 0.3 : distKm <= 6 ? 0.7 : 1.5);
       let score = trav
-        + Math.max(0, arrival - end) * (isMust ? 5000 : 500); // missed = catastrophic for must-visits
-      // Must-visits get a bonus for being visited earlier (urgency based on closing time)
+        + waitPenalty
+        + Math.max(0, arrival - end) * (isMust ? 5000 : 500);
+      // Must-visits get urgency bonus
       if (isMust) {
         const timeLeft = end - now;
-        if (timeLeft < 180) score -= 200; // closing within 3hrs — visit soon
-        if (timeLeft < 60)  score -= 500; // closing within 1hr — visit now
+        if (timeLeft < 180) score -= 200;
+        if (timeLeft < 60)  score -= 500;
       }
       // Late in route, prefer stops closer to home
       if (homeGeo && progress > 0.5) {
