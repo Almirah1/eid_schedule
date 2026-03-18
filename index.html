@@ -1672,7 +1672,16 @@
     <div class="field-group"><label>Date</label><input type="date" id="editDate"></div>
     <div class="field-group"><label>Start Time</label><input type="time" id="editStart"></div>
     <div class="field-group"><label>End Time</label><input type="time" id="editEnd"></div>
-    <div class="field-group"><label>Address</label><input type="text" id="editAddress"></div>
+    <div class="field-group">
+      <label>Address</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="editAddress" style="width:100%;box-sizing:border-box;"
+          oninput="onAddressInput(this, 'editAutoList')"
+          onkeydown="onAddressKeydown(event, 'editAutoList', 'editAddress')"
+          autocomplete="off">
+        <div class="autocomplete-list" id="editAutoList" style="display:none;"></div>
+      </div>
+    </div>
     <div class="field-group"><label>Notes</label><textarea id="editNotes"></textarea></div>
     <div class="action-row">
       <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
