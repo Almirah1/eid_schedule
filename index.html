@@ -1332,6 +1332,35 @@
 
   .day-group-body.collapsed { max-height: 0; opacity: 0; }
 
+  /* ── ADDRESS AUTOCOMPLETE ───────────────────────────────────────────────── */
+  .autocomplete-wrapper { position: relative; flex: 1; }
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--white);
+    border: 1.5px solid rgba(201,168,76,0.3);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(26,92,107,0.15);
+    z-index: 9999;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .autocomplete-item {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+    line-height: 1.4;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover, .autocomplete-item.active {
+    background: var(--cream);
+    color: var(--teal-dark);
+  }
+  .autocomplete-item strong { color: var(--teal); }
+
   /* ── SETTINGS MODAL ──────────────────────────────────────────── */
   .settings-section {
     border-bottom: 1px solid var(--cream-dark);
@@ -1583,7 +1612,14 @@
       <h4>🏠 Home Address</h4>
       <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">Your starting point for route planning.</p>
       <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
-        <input type="text" id="homeAddressInput" placeholder="e.g. 12 Example Street, Auckland" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;">
+        <div class="autocomplete-wrapper">
+          <input type="text" id="homeAddressInput" placeholder="e.g. 12 Example Street, Auckland"
+            style="width:100%;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:1rem;font-family:'DM Sans',sans-serif;color:#0D3A45;box-sizing:border-box;"
+            oninput="onAddressInput(this, 'homeAutoList')"
+            onkeydown="onAddressKeydown(event, 'homeAutoList', 'homeAddressInput')"
+            autocomplete="off">
+          <div class="autocomplete-list" id="homeAutoList" style="display:none;"></div>
+        </div>
         <button class="api-save-btn" onclick="saveHomeAddress()">Save</button>
       </div>
       <p id="homeAddressStatus" style="font-size:0.75rem;color:#6B6B6B;margin-bottom:1.25rem;min-height:1rem;"></p>
@@ -2313,6 +2349,96 @@ function getHomeGeocode() {
   const s = localStorage.getItem(HOME_GEOCODE_KEY);
   return s ? JSON.parse(s) : null;
 }
+
+// ── Address autocomplete ─────────────────────────────────────────────────────
+let _autoTimers = {};
+let _autoSelected = {}; // tracks keyboard selection index per list
+
+async function onAddressInput(input, listId) {
+  const val = input.value.trim();
+  const list = document.getElementById(listId);
+  clearTimeout(_autoTimers[listId]);
+
+  if (val.length < 3) { list.style.display = 'none'; return; }
+
+  _autoTimers[listId] = setTimeout(async () => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=nz&addressdetails=1&limit=6&q=${encodeURIComponent(val)}`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const results = await res.json();
+
+      if (!results.length) { list.style.display = 'none'; return; }
+
+      _autoSelected[listId] = -1;
+      list.innerHTML = results.map((r, i) => {
+        // Bold the part that matches the query
+        const display = r.display_name;
+        const short = [r.address?.road, r.address?.suburb, r.address?.city]
+          .filter(Boolean).join(', ');
+        return `<div class="autocomplete-item" 
+          data-lat="${r.lat}" data-lng="${r.lon}" data-display="${escAttr(display)}"
+          onmousedown="selectAutoItem('${listId}', '${input.id}', ${i})"
+          id="${listId}-item-${i}">
+          <strong>${escHtml(short || display.split(',')[0])}</strong>
+          <div style="font-size:0.75rem;color:#6B6B6B;margin-top:2px;">${escHtml(display)}</div>
+        </div>`;
+      }).join('');
+      list.style.display = 'block';
+    } catch(e) { list.style.display = 'none'; }
+  }, 300);
+}
+
+function onAddressKeydown(e, listId, inputId) {
+  const list = document.getElementById(listId);
+  if (list.style.display === 'none') return;
+  const items = list.querySelectorAll('.autocomplete-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _autoSelected[listId] = Math.min((_autoSelected[listId] || -1) + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _autoSelected[listId] = Math.max((_autoSelected[listId] || 0) - 1, 0);
+  } else if (e.key === 'Enter' && _autoSelected[listId] >= 0) {
+    e.preventDefault();
+    selectAutoItem(listId, inputId, _autoSelected[listId]);
+    return;
+  } else if (e.key === 'Escape') {
+    list.style.display = 'none'; return;
+  }
+
+  items.forEach((item, i) => item.classList.toggle('active', i === _autoSelected[listId]));
+  if (_autoSelected[listId] >= 0) items[_autoSelected[listId]].scrollIntoView({ block: 'nearest' });
+}
+
+function selectAutoItem(listId, inputId, index) {
+  const list = document.getElementById(listId);
+  const item = document.getElementById(`${listId}-item-${index}`);
+  if (!item) return;
+
+  const input = document.getElementById(inputId);
+  input.value = item.dataset.display;
+  list.style.display = 'none';
+
+  // If this is the home address, pre-cache the geocode result
+  if (inputId === 'homeAddressInput') {
+    const lat = parseFloat(item.dataset.lat);
+    const lng = parseFloat(item.dataset.lng);
+    localStorage.setItem(HOME_ADDRESS_KEY, item.dataset.display);
+    localStorage.setItem(HOME_GEOCODE_KEY, JSON.stringify({ lat, lng }));
+    document.getElementById('homeAddressStatus').textContent = '✓ ' + item.dataset.display;
+    document.getElementById('homeAddressStatus').style.color = '#4CAF50';
+    showToast('🏠 Home address saved!');
+  }
+}
+
+// Hide autocomplete when clicking outside
+document.addEventListener('click', e => {
+  document.querySelectorAll('.autocomplete-list').forEach(list => {
+    if (!list.parentElement.contains(e.target)) list.style.display = 'none';
+  });
+});
 
 async function saveHomeAddress() {
   const val = document.getElementById('homeAddressInput').value.trim();
