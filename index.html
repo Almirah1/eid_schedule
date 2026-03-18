@@ -1631,9 +1631,15 @@
       <div class="route-panel" id="routePanel">
         <div class="route-panel-title">⚡ Most Efficient Route — <span id="routeDayLabel"></span></div>
         <div class="route-stops" id="routeStops"></div>
-        <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank">
-          📍 Open in Google Maps
-        </a>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+          <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank" style="margin-top:0;">
+            📍 Open in Google Maps
+          </a>
+          <button class="route-gmaps-btn" id="teslaSendBtn" onclick="sendToTesla()" style="margin-top:0;cursor:pointer;border:none;background:linear-gradient(135deg,#CC0000,#E00000);color:white;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;margin-right:2px"><path d="M12 2L4 5.5V12c0 4.8 3.4 9.1 8 10 4.6-.9 8-5.2 8-10V5.5L12 2zm0 2.2l6 2.7V12c0 3.8-2.6 7.2-6 8.2-3.4-1-6-4.4-6-8.2V6.9l6-2.7z"/></svg>
+            Send to Tesla
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1702,6 +1708,26 @@
         <button class="btn-secondary" onclick="clearEidDate()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Clear</button>
       </div>
       <p class="eid-date-hint" id="eidDateHint" style="margin-top:0.5rem;color:var(--teal);"></p>
+    </div>
+
+    <div class="settings-section">
+      <h4>🚗 Tesla Navigation</h4>
+      <p style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.5rem;">Send route stops directly to your Tesla. Requires a Tesla Owner API token.</p>
+      <div style="margin-bottom:0.6rem;">
+        <label style="font-size:0.75rem;color:#6B6B6B;display:block;margin-bottom:0.25rem;">Access Token</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="password" id="teslaTokenInput" placeholder="eyJ..." style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:0.85rem;font-family:'DM Sans',sans-serif;color:#0D3A45;">
+          <button class="api-save-btn" onclick="saveTeslaToken()">Save</button>
+        </div>
+      </div>
+      <div style="margin-bottom:0.5rem;">
+        <label style="font-size:0.75rem;color:#6B6B6B;display:block;margin-bottom:0.25rem;">Vehicle ID</label>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="teslaVehicleInput" placeholder="1234567890" style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:10px;font-size:0.85rem;font-family:'DM Sans',sans-serif;color:#0D3A45;">
+          <button class="api-save-btn" onclick="saveTeslaVehicle()">Save</button>
+        </div>
+      </div>
+      <p style="font-size:0.72rem;color:#6B6B6B;">Get your token using <a href="https://github.com/adriankumpf/teslamate" target="_blank" style="color:var(--teal)">TeslaMate</a> or the <a href="https://apps.apple.com/app/auth-app-for-tesla/id1552058613" target="_blank" style="color:var(--teal)">Auth for Tesla</a> iOS app. Vehicle ID is in your Tesla account.</p>
     </div>
 
     <div class="settings-section">
@@ -2473,6 +2499,19 @@ function saveDepartureTime() {
   showToast('🕐 Departure time saved!');
 }
 
+function saveTeslaToken() {
+  const val = document.getElementById('teslaTokenInput').value.trim();
+  if (!val) return;
+  localStorage.setItem(TESLA_TOKEN_KEY, val);
+  showToast('🚗 Tesla token saved!');
+}
+function saveTeslaVehicle() {
+  const val = document.getElementById('teslaVehicleInput').value.trim();
+  if (!val) return;
+  localStorage.setItem(TESLA_VEHICLE_KEY, val);
+  showToast('🚗 Vehicle ID saved!');
+}
+
 const HOME_ADDRESS_KEY    = 'eid_home_address';
 const HOME_GEOCODE_KEY    = 'eid_home_geocode';
 
@@ -2627,6 +2666,10 @@ function updateEidDateHint() {
 function openSettings() {
   // Populate departure time
   document.getElementById('departureTimeInput').value = getDepartureTime();
+  const teslaToken = getTeslaToken();
+  if (teslaToken) document.getElementById('teslaTokenInput').value = teslaToken;
+  const teslaVehicle = getTeslaVehicle();
+  if (teslaVehicle) document.getElementById('teslaVehicleInput').value = teslaVehicle;
   const homeAddr = getHomeAddress();
   document.getElementById('homeAddressInput').value = homeAddr;
   const homeStatus = document.getElementById('homeAddressStatus');
@@ -3445,35 +3488,84 @@ async function calcRoute() {
       + '</div>';
   }).join('');
 
-  // Google Maps URL — use lat,lng for each stop if available, fall back to address
-  const homeGeoMaps = getHomeGeocode();
+  // Google Maps URL — use address strings
   const homeAddrMaps = getHomeAddress();
-
-  const pointToParam = (lat, lng, address) => {
-    if (lat && lng) return encodeURIComponent(`${lat},${lng}`);
-    return encodeURIComponent(address || '');
-  };
-
-  const origin = homeGeoMaps
-    ? pointToParam(homeGeoMaps.lat, homeGeoMaps.lng)
-    : pointToParam(route[0].lat, route[0].lng, route[0].event.address);
-
-  const lastStop = route[route.length - 1];
-  const dest = homeGeoMaps
-    ? pointToParam(homeGeoMaps.lat, homeGeoMaps.lng)
-    : pointToParam(lastStop.lat, lastStop.lng, lastStop.event.address);
-
-  // All route stops are waypoints (Google Maps handles up to 9 waypoints)
-  const waypointStops = homeGeoMaps ? route : route.slice(1, -1);
-  const waypoints = waypointStops
-    .map(p => pointToParam(p.lat, p.lng, p.event.address))
-    .join('|');
-
+  const origin = encodeURIComponent(homeAddrMaps || route[0].event.address);
+  const dest   = encodeURIComponent(homeAddrMaps || route[route.length-1].event.address);
+  const waypointStops = homeAddrMaps ? route : route.slice(1, -1);
+  const waypoints = waypointStops.map(p => encodeURIComponent(p.event.address)).join('|');
   document.getElementById('routeGmapsLink').href =
-    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? '&waypoints=' + waypoints : ''}&travelmode=driving`;
+    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
 
   document.getElementById('routePanel').classList.add('visible');
   showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
+}
+
+// ─── TESLA NAVIGATION ────────────────────────────────────────────────────────
+// Tesla Owner API: send a navigation request to your car.
+// Requires a Tesla Owner API access token — stored in localStorage.
+// Get a token at: https://developer.tesla.com or use a tool like TeslaFi/Auth for Tesla app.
+
+const TESLA_TOKEN_KEY   = 'eid_tesla_token';
+const TESLA_VEHICLE_KEY = 'eid_tesla_vehicle';
+
+function getTeslaToken()   { return localStorage.getItem(TESLA_TOKEN_KEY) || ''; }
+function getTeslaVehicle() { return localStorage.getItem(TESLA_VEHICLE_KEY) || ''; }
+
+async function sendToTesla() {
+  const token = getTeslaToken();
+  if (!token) {
+    if (confirm('Tesla API token not set. Would you like to set it up in Settings?')) {
+      openSettings();
+    }
+    return;
+  }
+
+  // Get the next unvisited stop in the route
+  const routeStopEls = document.querySelectorAll('#routeStops .route-stop');
+  if (!routeStopEls.length) { showToast('No route calculated yet'); return; }
+
+  // Find the first stop's address from the current route
+  const firstStopName = routeStopEls[0].querySelector('.route-stop-name')?.textContent?.trim();
+  const ev = events.find(e => e.host === firstStopName);
+  if (!ev?.address) { showToast('No address for first stop'); return; }
+
+  const vehicleId = getTeslaVehicle();
+  if (!vehicleId) {
+    showToast('⚠️ No vehicle ID set — add it in Settings');
+    openSettings();
+    return;
+  }
+
+  showToast('🚗 Sending to Tesla...');
+
+  try {
+    // Wake vehicle first
+    await fetch(`https://owner-api.teslamotors.com/api/1/vehicles/${vehicleId}/wake_up`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+
+    // Wait a moment for wake
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Send navigation destination
+    const res = await fetch(`https://owner-api.teslamotors.com/api/1/vehicles/${vehicleId}/command/navigation_request`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'share_ext_content_raw', locale: 'en-NZ', timestamp_ms: Date.now(),
+        value: { 'android.intent.extra.TEXT': ev.address } })
+    });
+
+    const data = await res.json();
+    if (data.response?.result) {
+      showToast(`🚗 Sent "${ev.address}" to Tesla!`);
+    } else {
+      showToast('⚠️ Tesla responded but navigation may not have set — check your car');
+    }
+  } catch(e) {
+    showToast('✖️ Could not reach Tesla API — check token and connection');
+  }
 }
 
 // ─── FIX YEARS ───────────────────────────────────────────────────────────────
