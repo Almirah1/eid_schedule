@@ -2923,9 +2923,13 @@ function nearestNeighbourRoute(points) {
       const a = timed[i], b = timed[j];
       const subA = extractSuburb(a.event.address), subB = extractSuburb(b.event.address);
       const sameSuburb = subA && subB && subA === subB;
-      const nearEnough = haversine(a.lat, a.lng, b.lat, b.lng) <= SUBURB_PROX_KM;
+      const straightLine = haversine(a.lat, a.lng, b.lat, b.lng);
+      const nearEnough = straightLine <= SUBURB_PROX_KM;
+      // Also check OSRM driving time if cached — ≤8 min drive = same cluster
+      const driveMins = travelTimeMins(a, b);
+      const closeByRoad = driveMins <= 8;
       const timeOverlap = timeToMins(a.event.start) < endOf(b) && timeToMins(b.event.start) < endOf(a);
-      if ((sameSuburb || nearEnough) && timeOverlap) union(i, j);
+      if ((sameSuburb || nearEnough || closeByRoad) && timeOverlap) union(i, j);
     }
   }
 
