@@ -3358,11 +3358,8 @@ function nearestNeighbourRoute(points) {
       const s = timeToMins(p.event.start) || 0;
       const e = endOf(p);
       const trav = travelTimeMins({ lat, lng }, p);
-      const distKm = haversine(lat, lng, p.lat, p.lng);
-      // Wider window for nearby stops — worth waiting rather than backtracking later
-      const windowMins = distKm <= 5 ? 180 : 120;
-      // Include if reachable within window, OR if it's a must-visit within closing time
-      return (s <= now + windowMins && (now + trav) < e)
+      // 2hr lookahead window — or always include must-visits while still open
+      return (s <= now + 120 && (now + trav) < e)
           || (p.event.must_visit && (now + trav) < e);
     });
 
@@ -3385,24 +3382,17 @@ function nearestNeighbourRoute(points) {
       if (candidates.length === 0) candidates = [...remaining];
     }
 
-    // Score each candidate: drive time + wait time + penalties
+    // Score each candidate: drive time + missed window penalty + urgency + home pull
     let best = candidates[0], bestScore = Infinity;
     const progress = route.length / (route.length + remaining.length);
     for (const p of candidates) {
       const trav = travelTimeMins({ lat, lng }, p);
-      const distKm = haversine(lat, lng, p.lat, p.lng);
       const arrival = now + trav;
       const start = timeToMins(p.event.start) || arrival;
       const end = endOf(p);
       const isMust = p.event.must_visit;
-      // Wait time: how long we'd sit before the stop opens
-      const waitMins = Math.max(0, start - arrival);
-      // Nearby stops: waiting costs much less than a long detour back later
-      // The wait penalty scales with distance — far stops shouldn't be waited for
-      const waitPenalty = waitMins * (distKm <= 3 ? 0.3 : distKm <= 6 ? 0.7 : 1.5);
       let score = trav
-        + waitPenalty
-        + Math.max(0, arrival - end) * (isMust ? 5000 : 500);
+        + Math.max(0, arrival - end) * (isMust ? 5000 : 500); // missed window
       // Must-visits get urgency bonus
       if (isMust) {
         const timeLeft = end - now;
