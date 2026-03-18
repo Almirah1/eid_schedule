@@ -1299,6 +1299,25 @@
 
 
   /* ── VISITED STATE ───────────────────────────────────────────── */
+  .event-card.must-visit {
+    border-left-color: #E05A5A;
+    background: #fffaf9;
+  }
+  .must-visit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #C0392B;
+    background: rgba(220,50,50,0.1);
+    border: 1px solid rgba(220,50,50,0.25);
+    border-radius: 20px;
+    padding: 0.15rem 0.5rem;
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
   .event-card.visited {
     opacity: 0.6;
     border-left-color: #4CAF50;
@@ -1570,6 +1589,12 @@
         <label>Host / Family Name</label>
         <input type="text" id="manualHost" placeholder="e.g. The Ahmed Family">
       </div>
+      <div style="margin-bottom:0.85rem;">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.88rem;font-weight:500;color:#C0392B;">
+          <input type="checkbox" id="manualMustVisit" style="accent-color:#E05A5A;width:16px;height:16px;">
+          ❤️ Immediate Family — can't miss this one
+        </label>
+      </div>
       <div class="field-group">
         <label>Date</label>
         <input type="date" id="manualDate">
@@ -1810,6 +1835,12 @@
   <div class="modal">
     <h3>✏️ Edit Visit</h3>
     <div class="field-group"><label>Host / Family</label><input type="text" id="editHost"></div>
+    <div style="margin-bottom:0.85rem;">
+      <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.88rem;font-weight:500;color:#C0392B;">
+        <input type="checkbox" id="editMustVisit" style="accent-color:#E05A5A;width:16px;height:16px;">
+        ❤️ Immediate Family — can't miss this one
+      </label>
+    </div>
     <div class="field-group"><label>Date</label><input type="date" id="editDate"></div>
     <div class="field-group">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
@@ -2041,6 +2072,7 @@ function normalizeRow(row) {
     notes: row.notes || '',
     image_url: row.image_url || null,
     visited: row.visited || false,
+    must_visit: row.must_visit || false,
     lat: row.lat || null,
     lng: row.lng || null,
   };
@@ -2404,8 +2436,9 @@ function renderEventCard(ev) {
     ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' })
     : '—';
 
+  const mustVisitBadge = ev.must_visit ? '<div class="must-visit-badge">❤️ Immediate Family</div>' : '';
   return `
-  <div class="event-card ${conflict ? 'conflict' : ''} ${ev.visited ? 'visited' : ''}">
+  <div class="event-card ${conflict ? 'conflict' : ''} ${ev.visited ? 'visited' : ''} ${ev.must_visit ? 'must-visit' : ''}">
     <button class="visited-btn" title="${ev.visited ? 'Mark unvisited' : 'Mark as visited'}" onclick="toggleVisited('${ev.id}')">
       ${ev.visited ? '✓' : ''}
     </button>
@@ -2415,6 +2448,7 @@ function renderEventCard(ev) {
       <div class="time-date">${dateStr}</div>
     </div>
     <div class="event-info">
+      ${mustVisitBadge}
       <h3>${escHtml(ev.host)}${isNew ? '<span class="new-badge">New</span>' : ''}</h3>
       <div class="event-meta">
         ${ev.address ? `<div class="meta-item"><span class="meta-icon">📌</span>${escHtml(ev.address)}</div>` : ''}
@@ -2462,6 +2496,7 @@ function openEdit(id) {
   if (!ev) return;
   editingId = id;
   document.getElementById('editHost').value = ev.host || '';
+  document.getElementById('editMustVisit').checked = ev.must_visit || false;
   document.getElementById('editDate').value = ev.date || '';
   const isAllDay = ev.start === '00:00' && ev.end === '23:59';
   document.getElementById('editAllDay').checked = isAllDay;
@@ -2488,6 +2523,7 @@ async function saveEdit() {
 
   const { error } = await db.from('eid_events').update({
     host: document.getElementById('editHost').value.trim(),
+    must_visit: document.getElementById('editMustVisit').checked,
     date: document.getElementById('editDate').value || null,
     start_time: document.getElementById('editAllDay').checked ? '00:00:00' : (document.getElementById('editStart').value || null),
     end_time:   document.getElementById('editAllDay').checked ? '23:59:00' : (document.getElementById('editEnd').value || null),
@@ -2502,6 +2538,7 @@ async function saveEdit() {
   if (ev) {
     ev.lat = hasValidCoords ? latVal : null;
     ev.lng = hasValidCoords ? lngVal : null;
+    ev.must_visit = document.getElementById('editMustVisit').checked;
   }
 
   if (error) { showToast('✖️ Could not update'); return; }
@@ -3538,6 +3575,7 @@ function showManualAdd() {
 
 function hideManualAdd() {
   document.getElementById('manualAddSection').style.display = 'none';
+  document.getElementById('manualMustVisit').checked = false;
   ['manualHost','manualDate','manualStart','manualEnd','manualAddress','manualNotes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -3592,6 +3630,7 @@ async function saveManualEvent() {
     end_time:   end,
     address:    document.getElementById('manualAddress').value.trim() || null,
     notes:      document.getElementById('manualNotes').value.trim() || null,
+    must_visit: document.getElementById('manualMustVisit').checked,
   }]).select().single();
 
   if (error) { showToast('✖️ Could not save — ' + (error.message || 'check Supabase')); return; }
@@ -3605,18 +3644,53 @@ async function saveManualEvent() {
 // Share → Tesla app to send directly to your car's navigation.
 
 function sendToTesla() {
-  // Get the first stop from the current route panel
-  const firstStopEl = document.querySelector('#routeStops .route-stop .route-stop-name');
-  if (!firstStopEl) { showToast('Calculate a route first'); return; }
+  // Get the first non-home stop from the route panel
+  const stopEls = document.querySelectorAll('#routeStops .route-stop .route-stop-name');
+  if (!stopEls.length) { showToast('Calculate a route first'); return; }
 
-  const firstStopName = firstStopEl.textContent.trim();
+  const firstStopName = [...stopEls].find(el => el.textContent.trim() !== '🏠 Home')?.textContent.trim();
+  if (!firstStopName) { showToast('No stops in route'); return; }
+
   const ev = events.find(e => e.host === firstStopName);
-  if (!ev?.address) { showToast('No address for first stop'); return; }
+  if (!ev) { showToast('Could not find stop details'); return; }
 
-  // Open in Apple Maps — then tap Share → Tesla from there
-  const encoded = encodeURIComponent(ev.address);
-  window.open(`maps://?q=${encoded}&dirflg=d`, '_blank');
-  showToast('🚗 Opening in Apple Maps — tap Share → Tesla');
+  // Prefer lat/lng for accuracy, fall back to address
+  const lat = ev.lat;
+  const lng = ev.lng;
+  const address = ev.address;
+
+  // Try Tesla app deep link first (tesla:// URL scheme)
+  // If Tesla app is installed this opens it directly with nav set — no sharing needed
+  if (lat && lng) {
+    // Tesla app supports: tesla://navigation?lat=X&lng=Y&name=Label
+    const teslaUrl = `tesla://navigation?lat=${lat}&lng=${lng}&name=${encodeURIComponent(ev.host)}`;
+    const mapsUrl  = `maps://?daddr=${lat},${lng}&dirflg=d`;
+
+    // Attempt to open Tesla app; fall back to Apple Maps after 500ms if not installed
+    const start = Date.now();
+    window.location.href = teslaUrl;
+    setTimeout(() => {
+      // If we're still here after 500ms, Tesla app didn't open — use Apple Maps
+      if (Date.now() - start < 2000) {
+        window.open(mapsUrl, '_blank');
+        showToast('🚗 Tesla app not found — opened Apple Maps');
+      }
+    }, 500);
+    showToast(`🚗 Sending to Tesla: ${ev.host}`);
+  } else if (address) {
+    // No coords — try Tesla app with address, fall back to Apple Maps
+    const teslaUrl = `tesla://navigation?address=${encodeURIComponent(address)}&name=${encodeURIComponent(ev.host)}`;
+    const mapsUrl  = `maps://?daddr=${encodeURIComponent(address)}&dirflg=d`;
+
+    window.location.href = teslaUrl;
+    setTimeout(() => {
+      window.open(mapsUrl, '_blank');
+      showToast('🚗 Tesla app not found — opened Apple Maps');
+    }, 500);
+    showToast(`🚗 Sending to Tesla: ${ev.host}`);
+  } else {
+    showToast('⚠️ No address or coordinates for this stop');
+  }
 }
 
 // ─── FIX YEARS ───────────────────────────────────────────────────────────────
