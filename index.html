@@ -3246,8 +3246,9 @@ function nearestNeighbourRoute(points) {
       const trav  = travelTimeMins({ lat, lng }, p);
       const arrival = now + trav;
       const end   = endOf(p);
+      const mustVisit = p.event.must_visit;
       cost += trav
-            + Math.max(0, arrival - end) * 500;  // missed window — very bad
+            + Math.max(0, arrival - end) * (mustVisit ? 5000 : 500);  // missed window — catastrophic for must-visits
       // Extra penalty: if this stop is far from home AND it's in the second half
       // of the route, discourage it — we want far-from-home stops done early
       if (homeGeoScore && i >= order.length / 2) {
@@ -3348,16 +3349,27 @@ function nearestNeighbourRoute(points) {
   while (remaining.length) {
     // Candidates: stops whose window is reachable from now (start <= now + 2hrs)
     // AND which we can arrive at before closing
+    // Must-visit stops are always candidates — we can't skip them
+    const mustVisitRemaining = remaining.filter(p => p.event.must_visit);
     let candidates = remaining.filter(p => {
       const s = timeToMins(p.event.start) || 0;
       const e = endOf(p);
       const trav = travelTimeMins({ lat, lng }, p);
-      return s <= now + 120 && (now + trav) < e;
+      // Include if reachable within 2hrs, OR if it's a must-visit within closing time
+      return (s <= now + 120 && (now + trav) < e)
+          || (p.event.must_visit && (now + trav) < e);
     });
 
     if (candidates.length === 0) {
       // Jump forward to next earliest reachable stop
-      const nextStart = Math.min(...remaining.map(p => timeToMins(p.event.start) || 0));
+      // Prioritise must-visits when jumping
+      const urgentMust = mustVisitRemaining.filter(p => {
+        const trav = travelTimeMins({ lat, lng }, p);
+        return (now + trav) < endOf(p);
+      });
+      const nextStart = urgentMust.length
+        ? Math.min(...urgentMust.map(p => timeToMins(p.event.start) || 0))
+        : Math.min(...remaining.map(p => timeToMins(p.event.start) || 0));
       now = nextStart;
       candidates = remaining.filter(p => {
         const e = endOf(p);
@@ -3375,8 +3387,15 @@ function nearestNeighbourRoute(points) {
       const arrival = now + trav;
       const start = timeToMins(p.event.start) || arrival;
       const end = endOf(p);
+      const isMust = p.event.must_visit;
       let score = trav
-        + Math.max(0, arrival - end) * 500;       // missed window
+        + Math.max(0, arrival - end) * (isMust ? 5000 : 500); // missed = catastrophic for must-visits
+      // Must-visits get a bonus for being visited earlier (urgency based on closing time)
+      if (isMust) {
+        const timeLeft = end - now;
+        if (timeLeft < 180) score -= 200; // closing within 3hrs — visit soon
+        if (timeLeft < 60)  score -= 500; // closing within 1hr — visit now
+      }
       // Late in route, prefer stops closer to home
       if (homeGeo && progress > 0.5) {
         score += travelTimeMins(p, homeGeo) * progress * 3;
@@ -3543,7 +3562,7 @@ async function calcRoute() {
       + '</div>'
       + '</div>'
       + '<div class="route-stop-body">'
-      + '<div class="route-stop-name">' + escHtml(p.event.host) + '</div>'
+      + '<div class="route-stop-name">' + (p.event.must_visit ? '❤️ ' : '') + escHtml(p.event.host) + '</div>'
       + '<div class="route-stop-times">'
       + arrHtml
       + windowHtml
