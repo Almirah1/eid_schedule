@@ -1558,6 +1558,63 @@
       <h3>Drop your invitation screenshots here</h3>
       <p>or click to browse — JPG, PNG, HEIC supported</p>
       <button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Choose Photo</button>
+      <button class="upload-btn" onclick="event.stopPropagation(); showManualAdd()" style="background:none;border:2px solid var(--gold);color:var(--teal-dark);margin-top:0.5rem;">✏️ Add Manually</button>
+    </div>
+  </div>
+
+  <!-- MANUAL ADD -->
+  <div class="upload-section" id="manualAddSection" style="display:none;">
+    <div class="section-label">✏️ Add Manually</div>
+    <div class="extraction-panel" style="box-shadow:none;padding:0;">
+      <div class="field-group">
+        <label>Host / Family Name</label>
+        <input type="text" id="manualHost" placeholder="e.g. The Ahmed Family">
+      </div>
+      <div class="field-group">
+        <label>Date</label>
+        <input type="date" id="manualDate">
+      </div>
+      <div class="field-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+          <label style="margin:0;">Times</label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--teal);cursor:pointer;margin:0;">
+            <input type="checkbox" id="manualAllDay" onchange="toggleAllDay()" style="accent-color:var(--teal);width:15px;height:15px;">
+            🏠 Home all day
+          </label>
+        </div>
+        <div style="display:flex;gap:0.5rem;" id="manualTimeFields">
+          <div style="flex:1;">
+            <label style="font-size:0.75rem;color:#6B6B6B;">Start</label>
+            <input type="time" id="manualStart" style="width:100%;box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.75rem;color:#6B6B6B;">End</label>
+            <input type="time" id="manualEnd" style="width:100%;box-sizing:border-box;">
+          </div>
+        </div>
+        <div id="manualAllDayLabel" style="display:none;font-size:0.82rem;color:var(--teal);background:rgba(26,92,107,0.07);border-radius:8px;padding:0.4rem 0.7rem;margin-top:0.4rem;">
+          🏠 Home all day — available 12:00am to 11:59pm
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Address</label>
+        <div class="autocomplete-wrapper">
+          <input type="text" id="manualAddress" placeholder="e.g. 14 Rosebank Ave, Auckland"
+            style="width:100%;box-sizing:border-box;"
+            oninput="onAddressInput(this, 'manualAutoList')"
+            onkeydown="onAddressKeydown(event, 'manualAutoList', 'manualAddress')"
+            autocomplete="off">
+          <div class="autocomplete-list" id="manualAutoList" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Notes</label>
+        <textarea id="manualNotes" placeholder="e.g. Bring dessert, parking at front"></textarea>
+      </div>
+      <div class="action-row">
+        <button class="btn-primary" onclick="saveManualEvent()">Save to Family Schedule ✓</button>
+        <button class="btn-secondary" onclick="hideManualAdd()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -1583,12 +1640,26 @@
           <input type="date" id="fieldDate">
         </div>
         <div class="field-group">
-          <label>Start Time</label>
-          <input type="time" id="fieldStart">
-        </div>
-        <div class="field-group">
-          <label>End Time</label>
-          <input type="time" id="fieldEnd">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+            <label style="margin:0;">Times</label>
+            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--teal);cursor:pointer;margin:0;">
+              <input type="checkbox" id="fieldAllDay" onchange="toggleFieldAllDay()" style="accent-color:var(--teal);width:15px;height:15px;">
+              🏠 Home all day
+            </label>
+          </div>
+          <div style="display:flex;gap:0.5rem;" id="fieldTimeInputs">
+            <div style="flex:1;">
+              <label style="font-size:0.75rem;color:#6B6B6B;">Start</label>
+              <input type="time" id="fieldStart" style="width:100%;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:0.75rem;color:#6B6B6B;">End</label>
+              <input type="time" id="fieldEnd" style="width:100%;box-sizing:border-box;">
+            </div>
+          </div>
+          <div id="fieldAllDayLabel" style="display:none;font-size:0.82rem;color:var(--teal);background:rgba(26,92,107,0.07);border-radius:8px;padding:0.4rem 0.7rem;margin-top:0.4rem;">
+            🏠 Home all day — available 12:00am to 11:59pm
+          </div>
         </div>
         <div class="field-group">
           <label>Address</label>
@@ -1740,8 +1811,28 @@
     <h3>✏️ Edit Visit</h3>
     <div class="field-group"><label>Host / Family</label><input type="text" id="editHost"></div>
     <div class="field-group"><label>Date</label><input type="date" id="editDate"></div>
-    <div class="field-group"><label>Start Time</label><input type="time" id="editStart"></div>
-    <div class="field-group"><label>End Time</label><input type="time" id="editEnd"></div>
+    <div class="field-group">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+        <label style="margin:0;">Times</label>
+        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:var(--teal);cursor:pointer;margin:0;">
+          <input type="checkbox" id="editAllDay" onchange="toggleEditAllDay()" style="accent-color:var(--teal);width:15px;height:15px;">
+          🏠 Home all day
+        </label>
+      </div>
+      <div style="display:flex;gap:0.5rem;" id="editTimeInputs">
+        <div style="flex:1;">
+          <label style="font-size:0.75rem;color:#6B6B6B;">Start</label>
+          <input type="time" id="editStart" style="width:100%;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:0.75rem;color:#6B6B6B;">End</label>
+          <input type="time" id="editEnd" style="width:100%;box-sizing:border-box;">
+        </div>
+      </div>
+      <div id="editAllDayLabel" style="display:none;font-size:0.82rem;color:var(--teal);background:rgba(26,92,107,0.07);border-radius:8px;padding:0.4rem 0.7rem;margin-top:0.4rem;">
+        🏠 Home all day — available 12:00am to 11:59pm
+      </div>
+    </div>
     <div class="field-group">
       <label>Address</label>
       <div class="autocomplete-wrapper">
@@ -2372,8 +2463,12 @@ function openEdit(id) {
   editingId = id;
   document.getElementById('editHost').value = ev.host || '';
   document.getElementById('editDate').value = ev.date || '';
+  const isAllDay = ev.start === '00:00' && ev.end === '23:59';
+  document.getElementById('editAllDay').checked = isAllDay;
   document.getElementById('editStart').value = ev.start || '';
   document.getElementById('editEnd').value = ev.end || '';
+  document.getElementById('editTimeInputs').style.display = isAllDay ? 'none' : 'flex';
+  document.getElementById('editAllDayLabel').style.display = isAllDay ? 'block' : 'none';
   document.getElementById('editAddress').value = ev.address || '';
   document.getElementById('editNotes').value = ev.notes || '';
   // Populate lat/lng override fields
@@ -2394,8 +2489,8 @@ async function saveEdit() {
   const { error } = await db.from('eid_events').update({
     host: document.getElementById('editHost').value.trim(),
     date: document.getElementById('editDate').value || null,
-    start_time: document.getElementById('editStart').value || null,
-    end_time: document.getElementById('editEnd').value || null,
+    start_time: document.getElementById('editAllDay').checked ? '00:00:00' : (document.getElementById('editStart').value || null),
+    end_time:   document.getElementById('editAllDay').checked ? '23:59:00' : (document.getElementById('editEnd').value || null),
     address: document.getElementById('editAddress').value.trim() || null,
     notes: document.getElementById('editNotes').value.trim() || null,
     lat: hasValidCoords ? latVal : null,
@@ -3200,99 +3295,67 @@ function nearestNeighbourRoute(points) {
     Math.min(...b.map(p => timeToMins(p.event.start) || 0))
   );
 
-  // ── Order clusters by travel efficiency ──────────────────────────────────
-  const centroid = cluster => ({
-    lat: cluster.reduce((s, p) => s + p.lat, 0) / cluster.length,
-    lng: cluster.reduce((s, p) => s + p.lng, 0) / cluster.length,
-    earliest: Math.min(...cluster.map(p => timeToMins(p.event.start) || 0))
-  });
-
-  // Start from home if geocoded, otherwise first cluster's first stop
+  // ── Global greedy route across all clusters ──────────────────────────────
+  // Instead of visiting clusters sequentially, at each step pick the best
+  // next stop from ANY cluster that is geographically and temporally reachable.
+  // This allows natural interleaving (e.g. Flatbush stop between Papatoetoe stops).
   const homeGeo = getHomeGeocode();
-  const orderedClusters = [];
-  const remainingClusters = [...clusters];
-  let lat = homeGeo ? homeGeo.lat : remainingClusters[0][0].lat;
-  let lng = homeGeo ? homeGeo.lng : remainingClusters[0][0].lng;
+  let lat = homeGeo ? homeGeo.lat : clusters[0][0].lat;
+  let lng = homeGeo ? homeGeo.lng : clusters[0][0].lng;
   let now = departMins;
 
-  while (remainingClusters.length) {
-    // Candidates: clusters reachable within 2hrs from now
-    let candidates = remainingClusters.filter(c => centroid(c).earliest <= now + 120);
-    if (candidates.length === 0) {
-      // Jump to earliest remaining cluster
-      remainingClusters.sort((a,b) => centroid(a).earliest - centroid(b).earliest);
-      candidates = [remainingClusters[0]];
-    }
-    // Pick nearest centroid among candidates
-    let best = candidates[0], bestDist = Infinity;
-    candidates.forEach(c => {
-      const cen = centroid(c);
-      const d = haversine(lat, lng, cen.lat, cen.lng);
-      if (d < bestDist) { bestDist = d; best = c; }
-    });
-    orderedClusters.push(best);
-    remainingClusters.splice(remainingClusters.indexOf(best), 1);
-    const cen = centroid(best);
-    now = Math.max(now + (haversine(lat, lng, cen.lat, cen.lng) / AVG_SPEED_KMH) * 60, cen.earliest) + MIN_VISIT_MINS * best.length;
-    lat = cen.lat; lng = cen.lng;
-  }
-
-  // ── Build final route ─────────────────────────────────────────────────────
+  // Flatten all stops but keep cluster membership for within-cluster optimisation
+  const remaining = clusters.flatMap(c => c);
   const route = [];
-  for (let ci = 0; ci < orderedClusters.length; ci++) {
-    const cluster = orderedClusters[ci];
-    const isLastCluster = ci === orderedClusters.length - 1;
-    const fromLat = route.length ? route[route.length-1].lat : (homeGeo ? homeGeo.lat : orderedClusters[0][0].lat);
-    const fromLng = route.length ? route[route.length-1].lng : (homeGeo ? homeGeo.lng : orderedClusters[0][0].lng);
 
-    // For the last cluster, re-score with home as the destination so the
-    // stop closest to home naturally ends up last
-    if (isLastCluster && homeGeo && cluster.length > 1) {
-      // Try all permutations of the last cluster, picking the one whose
-      // last stop is closest to home (by travel time)
-      const permute = a => a.length <= 1 ? [a] :
-        a.flatMap((v, i) => permute([...a.slice(0,i), ...a.slice(i+1)]).map(p => [v,...p]));
-      const perms = cluster.length <= 6 ? permute(cluster) : (() => {
-        const ps = [];
-        for (let t = 0; t < 500; t++) {
-          const c = [...cluster];
-          for (let i=c.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[c[i],c[j]]=[c[j],c[i]];}
-          ps.push(c);
-        }
-        return ps;
-      })();
+  while (remaining.length) {
+    // Candidates: stops whose window is reachable from now (start <= now + 2hrs)
+    // AND which we can arrive at before closing
+    let candidates = remaining.filter(p => {
+      const s = timeToMins(p.event.start) || 0;
+      const e = endOf(p);
+      const trav = travelTimeMins({ lat, lng }, p);
+      return s <= now + 120 && (now + trav) < e;
+    });
 
-      let bestPerm = cluster, bestScore = Infinity;
-      for (const perm of perms) {
-        const lastStop = perm[perm.length - 1];
-        const distToHome = travelTimeMins(lastStop, homeGeo);
-        const routeCost = scoreOrder(perm, fromLat, fromLng);
-        // Combined score: route efficiency + heavily weight last stop → home
-        const score = routeCost + distToHome * 8;
-        if (score < bestScore) { bestScore = score; bestPerm = perm; }
-      }
-      route.push(...bestPerm);
-    } else {
-      route.push(...optimiseGroup(cluster, fromLat, fromLng));
+    if (candidates.length === 0) {
+      // Jump forward to next earliest reachable stop
+      const nextStart = Math.min(...remaining.map(p => timeToMins(p.event.start) || 0));
+      now = nextStart;
+      candidates = remaining.filter(p => {
+        const e = endOf(p);
+        const trav = travelTimeMins({ lat, lng }, p);
+        return (now + trav) < e;
+      });
+      if (candidates.length === 0) candidates = [...remaining];
     }
 
-    // Fill 2hr+ gaps with nearest untimed stop
-    if (flexPool.length > 0) {
-      const lastStart = timeToMins(route[route.length-1].event.start) || 0;
-      const nextCluster = orderedClusters[ci + 1];
-      const nextStart = nextCluster ? Math.min(...nextCluster.map(p => timeToMins(p.event.start) || 0)) : Infinity;
-      if (nextStart - lastStart >= GAP_THRESHOLD_MINS) {
-        const last = route[route.length-1];
-        let bi = 0, bd = Infinity;
-        flexPool.forEach((p, i) => { const d = haversine(last.lat, last.lng, p.lat, p.lng); if (d < bd) { bd = d; bi = i; } });
-        route.push(flexPool.splice(bi, 1)[0]);
+    // Score each candidate: drive time + penalty for being far from home late in route
+    let best = candidates[0], bestScore = Infinity;
+    const progress = route.length / (route.length + remaining.length);
+    for (const p of candidates) {
+      const trav = travelTimeMins({ lat, lng }, p);
+      const arrival = now + trav;
+      const start = timeToMins(p.event.start) || arrival;
+      const end = endOf(p);
+      let score = trav
+        + Math.max(0, arrival - end) * 500;       // missed window
+      // Late in route, prefer stops closer to home
+      if (homeGeo && progress > 0.5) {
+        score += travelTimeMins(p, homeGeo) * progress * 3;
       }
+      if (score < bestScore) { bestScore = score; best = p; }
     }
+
+    route.push(best);
+    remaining.splice(remaining.indexOf(best), 1);
+    const s = timeToMins(best.event.start) || now;
+    now = Math.max(now + travelTimeMins({ lat, lng }, best), s) + MIN_VISIT_MINS;
+    lat = best.lat; lng = best.lng;
   }
 
   if (flexPool.length > 0) {
-    const last = route[route.length-1];
-    route.push(...nnOrder(flexPool, last.lat, last.lng));
+    route.push(...nnOrder(flexPool, lat, lng));
   }
 
   return route;
@@ -3464,6 +3527,77 @@ async function calcRoute() {
 
   document.getElementById('routePanel').classList.add('visible');
   showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
+}
+
+// ─── MANUAL ADD ──────────────────────────────────────────────────────────────
+function showManualAdd() {
+  document.getElementById('manualAddSection').style.display = 'block';
+  document.getElementById('manualHost').focus();
+  document.getElementById('manualAddSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideManualAdd() {
+  document.getElementById('manualAddSection').style.display = 'none';
+  ['manualHost','manualDate','manualStart','manualEnd','manualAddress','manualNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('manualAllDay').checked = false;
+  toggleAllDay();
+}
+
+function toggleAllDay() {
+  const checked = document.getElementById('manualAllDay').checked;
+  document.getElementById('manualTimeFields').style.display = checked ? 'none' : 'flex';
+  document.getElementById('manualAllDayLabel').style.display = checked ? 'block' : 'none';
+}
+
+function toggleEditAllDay() {
+  const checked = document.getElementById('editAllDay').checked;
+  document.getElementById('editTimeInputs').style.display = checked ? 'none' : 'flex';
+  document.getElementById('editAllDayLabel').style.display = checked ? 'block' : 'none';
+  if (checked) {
+    document.getElementById('editStart').value = '00:00';
+    document.getElementById('editEnd').value = '23:59';
+  }
+}
+
+function toggleFieldAllDay() {
+  const checked = document.getElementById('fieldAllDay').checked;
+  document.getElementById('fieldTimeInputs').style.display = checked ? 'none' : 'flex';
+  document.getElementById('fieldAllDayLabel').style.display = checked ? 'block' : 'none';
+  if (checked) {
+    document.getElementById('fieldStart').value = '00:00';
+    document.getElementById('fieldEnd').value = '23:59';
+  } else {
+    document.getElementById('fieldStart').value = '';
+    document.getElementById('fieldEnd').value = '';
+  }
+}
+
+async function saveManualEvent() {
+  const host = document.getElementById('manualHost').value.trim();
+  if (!host) { showToast('⚠️ Please enter a host name'); return; }
+
+  const allDay = document.getElementById('manualAllDay').checked;
+  const start = allDay ? '00:00:00' : (document.getElementById('manualStart').value || null);
+  const end   = allDay ? '23:59:00' : (document.getElementById('manualEnd').value || null);
+
+  showToast('Saving...');
+
+  const { data, error } = await db.from('eid_events').insert([{
+    host,
+    date:       document.getElementById('manualDate').value || null,
+    start_time: start,
+    end_time:   end,
+    address:    document.getElementById('manualAddress').value.trim() || null,
+    notes:      document.getElementById('manualNotes').value.trim() || null,
+  }]).select().single();
+
+  if (error) { showToast('✖️ Could not save — ' + (error.message || 'check Supabase')); return; }
+
+  showToast('🌙 ' + host + ' added to schedule!');
+  hideManualAdd();
 }
 
 // ─── TESLA NAVIGATION ────────────────────────────────────────────────────────
