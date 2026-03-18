@@ -892,6 +892,17 @@
     flex-shrink: 0;
     padding-top: 3px;
   }
+  .drag-handle {
+    font-size: 0.9rem;
+    color: var(--cream-dark);
+    cursor: grab;
+    margin-top: 4px;
+    line-height: 1;
+    user-select: none;
+  }
+  .route-stop[draggable="true"] { cursor: grab; }
+  .route-stop.drag-over { background: var(--cream); border-radius: 12px; outline: 2px dashed var(--gold); }
+  .route-stop.dragging { opacity: 0.4; }
 
   .route-stop-num {
     width: 26px;
@@ -949,6 +960,22 @@
     border-radius: 20px;
     border: 1px solid var(--cream-dark);
   }
+
+  .left-at-btn {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--teal);
+    background: none;
+    border: 1.5px solid rgba(26,92,107,0.25);
+    border-radius: 20px;
+    padding: 0.15rem 0.55rem;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .left-at-btn:hover { background: var(--teal); color: white; border-color: var(--teal); }
+  .left-at-btn.active { background: var(--teal); color: white; border-color: var(--teal); }
 
   .route-stop-flag {
     font-size: 0.7rem;
@@ -1415,6 +1442,48 @@
 
   .day-group-body.collapsed { max-height: 0; opacity: 0; }
 
+  /* ── ALPHA SCROLL ───────────────────────────────────────────────────────────── */
+  .alpha-scroll-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--cream);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border: 1px solid var(--cream-dark);
+  }
+  .alpha-scroll-letter {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--teal);
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .alpha-scroll-letter:hover { background: var(--teal); color: white; }
+  .alpha-letter-header {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--teal);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.4rem 0.1rem 0.2rem;
+    border-bottom: 2px solid var(--gold);
+    margin-bottom: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .alpha-letter-group:first-child .alpha-letter-header { margin-top: 0; }
+
   /* ── ADDRESS AUTOCOMPLETE ───────────────────────────────────────────────── */
   .autocomplete-wrapper { position: relative; flex: 1; }
   .autocomplete-list {
@@ -1714,6 +1783,7 @@
           </div>
           <button class="map-btn secondary" id="refreshMapBtn" onclick="buildMap(true)" title="Re-geocode all addresses">↻ Refresh</button>
           <button class="map-btn" id="routeBtn" onclick="calcRoute()" disabled>✦ Best Route</button>
+          <button class="map-btn secondary" id="customRouteBtn" onclick="showCustomRoute()" style="display:none;" title="Show your saved custom route order">📋 My Route</button>
         </div>
       </div>
       <!-- DAY TABS -->
@@ -1725,9 +1795,21 @@
         </div>
       </div>
       <div class="route-panel" id="routePanel">
-        <div class="route-panel-title">⚡ Most Efficient Route — <span id="routeDayLabel"></span></div>
+        <div class="route-panel-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+          <span><span id="routeTitleIcon">⚡</span> <span id="routeTitleText">Most Efficient Route</span> — <span id="routeDayLabel"></span></span>
+          <div style="display:flex;gap:0.3rem;" id="routeModeToggle" style="display:none;">
+            <button id="bestRouteToggle" onclick="switchRouteMode('best')" style="font-size:0.7rem;padding:0.2rem 0.6rem;border-radius:20px;border:1.5px solid var(--teal);background:var(--teal);color:white;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">✦ Best</button>
+            <button id="customRouteToggle" onclick="switchRouteMode('custom')" style="font-size:0.7rem;padding:0.2rem 0.6rem;border-radius:20px;border:1.5px solid var(--teal);background:none;color:var(--teal);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">📋 Mine</button>
+          </div>
+        </div>
         <div class="route-stops" id="routeStops"></div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+          <button class="route-gmaps-btn" id="saveOrderBtn" onclick="saveCurrentOrder()" style="margin-top:0;cursor:pointer;border:none;background:var(--teal);color:white;display:none;">
+            💾 Save Order
+          </button>
+          <button class="route-gmaps-btn" onclick="recalcTimes()" style="margin-top:0;cursor:pointer;border:none;background:var(--cream);color:var(--teal-dark);border:1.5px solid var(--cream-dark);" title="Recalculate arrival times from current departure time">
+            🕐 Recalc Times
+          </button>
           <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank" style="margin-top:0;">
             📍 Open in Google Maps
           </a>
@@ -2073,6 +2155,7 @@ function normalizeRow(row) {
     image_url: row.image_url || null,
     visited: row.visited || false,
     must_visit: row.must_visit || false,
+    route_order: row.route_order ?? null,
     lat: row.lat || null,
     lng: row.lng || null,
   };
@@ -2420,6 +2503,30 @@ function renderSchedule() {
   }
 
   // Time / Alpha mode — flat list
+  if (sortMode === 'alpha') {
+    // Group by first letter with letter headers and a sticky A-Z scroll bar
+    const letterGroups = {};
+    sorted.forEach(ev => {
+      const letter = ev.host.trim()[0]?.toUpperCase() || '#';
+      if (!letterGroups[letter]) letterGroups[letter] = [];
+      letterGroups[letter].push(ev);
+    });
+    const letters = Object.keys(letterGroups).sort();
+
+    // Sticky letter scroll bar
+    const scrollBar = '<div class="alpha-scroll-bar">' +
+      letters.map(l => `<a class="alpha-scroll-letter" href="#alpha-${l}" onclick="document.getElementById('alpha-${l}')?.scrollIntoView({behavior:'smooth'});return false;">${l}</a>`).join('') +
+      '</div>';
+
+    list.innerHTML = scrollBar + letters.map(letter =>
+      `<div class="alpha-letter-group">
+        <div class="alpha-letter-header" id="alpha-${letter}">${letter}</div>
+        ${letterGroups[letter].map(ev => renderEventCard(ev)).join('')}
+      </div>`
+    ).join('');
+    return;
+  }
+
   list.innerHTML = sorted.map(ev => renderEventCard(ev)).join('');
 }
 
@@ -2953,8 +3060,9 @@ function buildGeoQueries(address) {
 }
 
 // ── Custom marker icon ────────────────────────────────────────────────────────
-function makeMarkerIcon(number, color = '#1A5C6B') {
-  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+function makeMarkerIcon(number, color = '#1A5C6B', faded = false) {
+  const opacity = faded ? '0.35' : '1';
+  const svg = `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg" opacity="${opacity}">
     <path d="M16 0 C7.163 0 0 7.163 0 16 C0 24 16 40 16 40 C16 40 32 24 32 16 C32 7.163 24.837 0 16 0Z" fill="${color}" stroke="white" stroke-width="2"/>
     <text x="16" y="20" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="DM Sans,sans-serif" font-size="12" font-weight="700">${number}</text>
   </svg>`;
@@ -3018,6 +3126,30 @@ function switchDay(day) {
 }
 
 // ── Show markers for a given day ──────────────────────────────────────────────
+function markerPopupHtml(ev, label) {
+  const timeStr = ev.start ? formatTime(ev.start) : null;
+  const endStr  = ev.end   ? formatTime(ev.end)   : null;
+  const dateStr = ev.date
+    ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' })
+    : '';
+  const visitedBadge = ev.visited
+    ? '<span style="font-size:0.68rem;background:#e8f5e9;color:#388e3c;border-radius:10px;padding:0.1rem 0.45rem;font-weight:700;">✓ Visited</span>'
+    : '';
+  const mustBadge = ev.must_visit
+    ? '<span style="font-size:0.68rem;background:rgba(220,50,50,0.1);color:#c0392b;border-radius:10px;padding:0.1rem 0.45rem;font-weight:700;">❤️ Must visit</span>'
+    : '';
+  return `
+    <div style="font-family:'DM Sans',sans-serif;min-width:180px;max-width:240px;">
+      ${label ? `<div style="font-size:0.68rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.25rem;">${label}</div>` : ''}
+      <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.25rem;line-height:1.3;">${escHtml(ev.host)}</div>
+      <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.3rem;">${visitedBadge}${mustBadge}</div>
+      ${timeStr ? `<div style="font-size:0.82rem;color:#1A5C6B;font-weight:600;margin-bottom:0.2rem;">🕐 ${timeStr}${endStr ? ' – ' + endStr : ''}</div>` : ''}
+      ${dateStr ? `<div style="font-size:0.75rem;color:#6B6B6B;margin-bottom:0.2rem;">📅 ${dateStr}</div>` : ''}
+      ${ev.address ? `<div style="font-size:0.75rem;color:#6B6B6B;margin-bottom:0.2rem;">📌 ${escHtml(ev.address)}</div>` : ''}
+      ${ev.notes ? `<div style="font-size:0.75rem;color:#6B6B6B;margin-top:0.1rem;">📝 ${escHtml(ev.notes)}</div>` : ''}
+    </div>`;
+}
+
 function showMarkersForDay(day) {
   mapMarkers.forEach(m => m.remove());
   mapMarkers = [];
@@ -3029,17 +3161,14 @@ function showMarkersForDay(day) {
   const bounds = [];
   filtered.forEach((p, i) => {
     const ev = p.event;
-    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
-    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
-    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i + 1, '#1A5C6B') }).addTo(leafletMap);
-    marker.bindPopup(`
-      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
-        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
-        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📌 ${escHtml(ev.address)}</div>
-        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
-        ${ev.notes ? `<div style="font-size:0.78rem;color:#6B6B6B;margin-top:0.3rem;">📝 ${escHtml(ev.notes)}</div>` : ''}
-      </div>
-    `, { maxWidth: 260 });
+    const isVisited = ev.visited;
+    // Grey out visited stops; use gold tint for must-visit
+    const color = isVisited ? '#9E9E9E' : ev.must_visit ? '#C0392B' : '#1A5C6B';
+    const marker = L.marker([p.lat, p.lng], {
+      icon: makeMarkerIcon(i + 1, color, isVisited),
+      zIndexOffset: isVisited ? -100 : 0  // visited pins behind unvisited
+    }).addTo(leafletMap);
+    marker.bindPopup(markerPopupHtml(ev, null), { maxWidth: 260 });
     mapMarkers.push(marker);
     bounds.push([p.lat, p.lng]);
   });
@@ -3124,6 +3253,42 @@ async function buildMap(forceRefresh = false) {
   // Build day tabs and show first day
   buildDayTabs(geocodedEvents);
   showMarkersForDay(activeDay);
+
+  // Always show the My Route button after map loads
+  document.getElementById('customRouteBtn').style.display = 'inline-flex';
+
+  // Check for saved custom route and auto-show if it was last used
+  loadCustomRoute().then(custom => {
+    if (custom) {
+      _customRoute = custom;
+      document.getElementById('customRouteBtn').style.display = 'inline-flex';
+      document.getElementById('routeModeToggle').style.display = 'flex';
+
+      // If user was last viewing custom route, show it automatically
+      const lastMode = localStorage.getItem('eid_route_mode') || 'best';
+      if (lastMode === 'custom') {
+        // Show the custom route panel automatically
+        const homeGeoDisplay = getHomeGeocode();
+        const homeAddrDisplay = getHomeAddress();
+        const displayRoute = homeGeoDisplay
+          ? [...custom, { event: { host: '\uD83C\uDFE0 Home', address: homeAddrDisplay }, lat: homeGeoDisplay.lat, lng: homeGeoDisplay.lng, isHome: true }]
+          : custom;
+        window._currentDisplayRoute = displayRoute;
+        window._currentRoute = custom;
+        _routeMode = 'custom';
+        document.getElementById('saveOrderBtn').style.display = 'none'; // already saved
+        // Update toggle UI
+        document.getElementById('routeTitleIcon').textContent = '\uD83D\uDCCB';
+        document.getElementById('routeTitleText').textContent = 'My Custom Route';
+        document.getElementById('bestRouteToggle').style.background = 'none';
+        document.getElementById('bestRouteToggle').style.color = 'var(--teal)';
+        document.getElementById('customRouteToggle').style.background = 'var(--teal)';
+        document.getElementById('customRouteToggle').style.color = 'white';
+        rerenderRouteStops(displayRoute, custom);
+        document.getElementById('routePanel').classList.add('visible');
+      }
+    }
+  });
 
   const days = [...new Set(geocodedEvents.map(e => e.event.date||'undated'))].length;
   if (failed.length > 0) {
@@ -3391,8 +3556,11 @@ function nearestNeighbourRoute(points) {
       const start = timeToMins(p.event.start) || arrival;
       const end = endOf(p);
       const isMust = p.event.must_visit;
+      // Wait time penalty: arriving too early means idle time
+      const waitMins = Math.max(0, start - arrival);
       let score = trav
-        + Math.max(0, arrival - end) * (isMust ? 5000 : 500); // missed window
+        + waitMins * 1.2                                         // waiting is costly — prefer stops that are already open
+        + Math.max(0, arrival - end) * (isMust ? 5000 : 500);   // missed window
       // Must-visits get urgency bonus
       if (isMust) {
         const timeLeft = end - now;
@@ -3422,16 +3590,26 @@ function nearestNeighbourRoute(points) {
   // but ONLY if both stops still arrive before their closing time after the swap.
   // We swap individual stops rather than reversing segments to preserve time order.
   const simRoute = (r) => {
-    // Simulate the route and return total travel cost + missed window penalties
     let cost = 0;
     let pLat = homeGeo ? homeGeo.lat : r[0].lat;
     let pLng = homeGeo ? homeGeo.lng : r[0].lng;
     let t = departMins;
-    for (const p of r) {
+    for (let i = 0; i < r.length; i++) {
+      const p = r[i];
       const trav = travelTimeMins({ lat: pLat, lng: pLng }, p);
       const arrival = t + trav;
       const end = endOf(p);
       cost += trav + Math.max(0, arrival - end) * 1000;
+      // Penalise skipping a geographically closer stop in favour of a far one.
+      // This strongly encourages geographic sweeping over time-only ordering.
+      if (i < r.length - 1) {
+        const next = r[i + 1];
+        const distToNext = haversine(p.lat, p.lng, next.lat, next.lng);
+        const closestDist = Math.min(...r.slice(i + 1).map(q => haversine(p.lat, p.lng, q.lat, q.lng)));
+        if (distToNext > closestDist + 0.3) {
+          cost += (distToNext - closestDist) * 4; // strong penalty for skipping nearby stops
+        }
+      }
       t = Math.max(arrival, timeToMins(p.event.start) || arrival) + MIN_VISIT_MINS;
       pLat = p.lat; pLng = p.lng;
     }
@@ -3439,15 +3617,20 @@ function nearestNeighbourRoute(points) {
     return cost;
   };
 
+  // Use simRoute score for all comparisons — missed windows score very high
+  // but don't flat-out reject, so the optimiser finds the global best trade-off.
+  // "Home all day" stops (00:00-23:59) are always feasible anywhere in the route.
+  const isAllDay = (p) => p.event.start === '00:00' && p.event.end === '23:59';
+
   const isFeasible = (r) => {
-    // Check no stop misses its closing time
     let pLat = homeGeo ? homeGeo.lat : r[0].lat;
     let pLng = homeGeo ? homeGeo.lng : r[0].lng;
     let t = departMins;
     for (const p of r) {
       const trav = travelTimeMins({ lat: pLat, lng: pLng }, p);
       const arrival = t + trav;
-      if (arrival > endOf(p)) return false; // misses closing time
+      // All-day stops are always feasible; others must arrive before closing
+      if (!isAllDay(p) && arrival > endOf(p)) return false;
       t = Math.max(arrival, timeToMins(p.event.start) || arrival) + MIN_VISIT_MINS;
       pLat = p.lat; pLng = p.lng;
     }
@@ -3456,19 +3639,52 @@ function nearestNeighbourRoute(points) {
 
   let improved = true;
   let passes = 0;
-  const baseCost = simRoute(route);
-  while (improved && passes < 20) {
+  while (improved && passes < 50) {
     improved = false;
     passes++;
-    outer: for (let i = 0; i < route.length - 1; i++) {
+
+    // Try 1: swap two stops
+    outer1: for (let i = 0; i < route.length - 1; i++) {
       for (let j = i + 1; j < route.length; j++) {
-        // Try swapping stop i and stop j
         const candidate = [...route];
         [candidate[i], candidate[j]] = [candidate[j], candidate[i]];
         if (isFeasible(candidate) && simRoute(candidate) < simRoute(route) - 0.5) {
           route.splice(0, route.length, ...candidate);
           improved = true;
-          break outer; // restart after any improvement
+          break outer1;
+        }
+      }
+    }
+    if (improved) continue;
+
+    // Try 2: relocate — remove stop i and reinsert at position j
+    outer2: for (let i = 0; i < route.length; i++) {
+      const stop = route[i];
+      const without = [...route.slice(0, i), ...route.slice(i + 1)];
+      for (let j = 0; j <= without.length; j++) {
+        if (j === i) continue;
+        const candidate = [...without.slice(0, j), stop, ...without.slice(j)];
+        if (isFeasible(candidate) && simRoute(candidate) < simRoute(route) - 0.5) {
+          route.splice(0, route.length, ...candidate);
+          improved = true;
+          break outer2;
+        }
+      }
+    }
+    if (improved) continue;
+
+    // Try 3: reverse a segment (2-opt) — only if feasible
+    outer3: for (let i = 0; i < route.length - 2; i++) {
+      for (let j = i + 2; j < route.length; j++) {
+        const candidate = [
+          ...route.slice(0, i + 1),
+          ...route.slice(i + 1, j + 1).reverse(),
+          ...route.slice(j + 1)
+        ];
+        if (isFeasible(candidate) && simRoute(candidate) < simRoute(route) - 0.5) {
+          route.splice(0, route.length, ...candidate);
+          improved = true;
+          break outer3;
         }
       }
     }
@@ -3517,25 +3733,6 @@ async function calcRoute() {
   routePolyline = L.polyline(latlngs, {
     color: '#C9A84C', weight: 3.5, opacity: 0.9, dashArray: '8, 6',
   }).addTo(leafletMap);
-
-  // Renumber markers in route order
-  mapMarkers.forEach(m => m.remove());
-  mapMarkers = [];
-  route.forEach((p, i) => {
-    const ev = p.event;
-    const timeStr = ev.start ? formatTime(ev.start) : 'Time TBC';
-    const dateStr = ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('en-NZ', { weekday:'short', day:'numeric', month:'short' }) : '';
-    const marker = L.marker([p.lat, p.lng], { icon: makeMarkerIcon(i+1, i === 0 ? '#2A8A9F' : '#1A5C6B') }).addTo(leafletMap);
-    marker.bindPopup(`
-      <div style="font-family:'DM Sans',sans-serif;min-width:180px;">
-        <div style="font-size:0.7rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem;">Stop ${i+1}${i===0?' · Start':''}</div>
-        <div style="font-family:'Amiri',serif;font-size:1.05rem;color:#0D3A45;margin-bottom:0.3rem;">${escHtml(ev.host)}</div>
-        <div style="font-size:0.8rem;color:#6B6B6B;margin-bottom:0.2rem;">📌 ${escHtml(ev.address)}</div>
-        <div style="font-size:0.8rem;color:#1A5C6B;font-weight:600;">${dateStr ? dateStr + ' · ' : ''}${timeStr}${ev.end ? ' – ' + formatTime(ev.end) : ''}</div>
-      </div>
-    `, { maxWidth: 260 });
-    mapMarkers.push(marker);
-  });
 
   leafletMap.fitBounds(latlngs, { padding: [40, 40] });
 
@@ -3602,6 +3799,37 @@ async function calcRoute() {
     })();
   }
 
+  // Renumber markers in route order, now that arrivals is populated
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  route.forEach((p, i) => {
+    const ev = p.event;
+    const arr = arrivals[i] || {};
+    const isMissed = arr.isMissed || ev.visited;
+    const color = isMissed ? '#9E9E9E' : i === 0 ? '#2A8A9F' : '#1A5C6B';
+    const marker = L.marker([p.lat, p.lng], {
+      icon: makeMarkerIcon(i+1, color, isMissed),
+      zIndexOffset: isMissed ? -100 : 0
+    }).addTo(leafletMap);
+    marker.bindPopup(markerPopupHtml(ev, `Stop ${i+1}${i===0?' · Start':''}`), { maxWidth: 260 });
+    mapMarkers.push(marker);
+  });
+
+  // Store route globally for drag reordering and mode switching
+  _bestRoute = route;
+  _routeMode = 'best';
+  localStorage.setItem('eid_route_mode', 'best');
+  window._currentDisplayRoute = displayRoute;
+  window._currentRoute = route;
+  // Show toggle if custom route exists
+  if (_customRoute) document.getElementById('routeModeToggle').style.display = 'flex';
+  document.getElementById('routeTitleIcon').textContent = '⚡';
+  document.getElementById('routeTitleText').textContent = 'Most Efficient Route';
+  document.getElementById('bestRouteToggle').style.background = 'var(--teal)';
+  document.getElementById('bestRouteToggle').style.color = 'white';
+  document.getElementById('customRouteToggle').style.background = 'none';
+  document.getElementById('customRouteToggle').style.color = 'var(--teal)';
+
   document.getElementById('routeStops').innerHTML = displayRoute.map((p, i) => {
     const arr = arrivals[i] || {};
     const { arrStr, isMissed, isLate, isTight } = arr;
@@ -3613,21 +3841,26 @@ async function calcRoute() {
                    : '';
 
     // Invite window: "opens 2:00pm – closes 8:00pm"
-    const windowHtml = (!isHome && p.event.start && p.event.end)
+    const isAllDayStop = p.event.start === '00:00' && p.event.end === '23:59';
+    const windowHtml = (!isHome && p.event.start && p.event.end && !isAllDayStop)
       ? '<span class="route-window">' + formatTime(p.event.start) + ' – ' + formatTime(p.event.end) + '</span>'
-      : (!isHome && p.event.start)
+      : (!isHome && p.event.start && !isAllDayStop)
       ? '<span class="route-window">from ' + formatTime(p.event.start) + '</span>'
+      : (!isHome && isAllDayStop)
+      ? '<span class="route-window" style="opacity:0.6;">🏠 all day</span>'
       : '';
 
     const arrHtml = arrStr
-      ? '<span class="route-arrive">~' + formatTime(arrStr) + '</span>'
+      ? '<span class="route-arrive" title="Estimated arrival time">arrive ~' + formatTime(arrStr) + '</span>'
       : '';
 
-    return '<div class="route-stop' + (isMissed ? '" style="opacity:0.5"' : '"') + '>'
+    const isHomeStop = p.isHome;
+    return '<div class="route-stop' + (isMissed ? '" style="opacity:0.5"' : '"') + '" draggable="' + (!isHomeStop ? 'true' : 'false') + '" data-index="' + i + '" ondragstart="routeDragStart(event)" ondragover="routeDragOver(event)" ondrop="routeDrop(event)" ondragend="routeDragEnd(event)">'
       + '<div class="route-stop-left">'
       + '<div class="route-stop-num' + (isHome ? ' home' : '') + '">'
       + (isHome ? '🏠' : (i + 1))
       + '</div>'
+      + (!isHome ? '<div class="drag-handle" title="Drag to reorder">⠿</div>' : '')
       + '</div>'
       + '<div class="route-stop-body">'
       + '<div class="route-stop-name">' + (p.event.must_visit ? '❤️ ' : '') + escHtml(p.event.host) + '</div>'
@@ -3636,6 +3869,7 @@ async function calcRoute() {
       + windowHtml
       + flagHtml
       + '</div>'
+      + (!isHome ? '<div style="margin-top:0.3rem;"><button class="left-at-btn" id="left-btn-' + i + '" onclick="markLeftAt(' + i + ')" title="Tap when you leave this stop">🚗 Left at…</button></div>' : '')
       + '</div>'
       + '</div>';
   }).join('');
@@ -3724,6 +3958,375 @@ async function saveManualEvent() {
 
   showToast('🌙 ' + host + ' added to schedule!');
   hideManualAdd();
+}
+
+// ─── ROUTE MODES ─────────────────────────────────────────────────────────────
+let _bestRoute = null;       // last computed best route
+let _customRoute = null;     // user-saved custom order
+let _routeMode = 'best';     // 'best' or 'custom'
+
+function switchRouteMode(mode) {
+  _routeMode = mode;
+  localStorage.setItem('eid_route_mode', mode);
+  document.getElementById('bestRouteToggle').style.background   = mode === 'best'   ? 'var(--teal)' : 'none';
+  document.getElementById('bestRouteToggle').style.color        = mode === 'best'   ? 'white' : 'var(--teal)';
+  document.getElementById('customRouteToggle').style.background = mode === 'custom' ? 'var(--teal)' : 'none';
+  document.getElementById('customRouteToggle').style.color      = mode === 'custom' ? 'white' : 'var(--teal)';
+  document.getElementById('routeTitleIcon').textContent  = mode === 'best' ? '⚡' : '📋';
+  document.getElementById('routeTitleText').textContent  = mode === 'best' ? 'Most Efficient Route' : 'My Custom Route';
+  document.getElementById('saveOrderBtn').style.display  = mode === 'custom' ? 'inline-flex' : 'none';
+
+  const route = mode === 'best' ? _bestRoute : _customRoute;
+  if (!route) { showToast(mode === 'custom' ? 'No custom order saved yet — drag stops to reorder' : 'Calculate best route first'); return; }
+
+  const homeGeoDisplay = getHomeGeocode();
+  const homeAddrDisplay = getHomeAddress();
+  const displayRoute = homeGeoDisplay
+    ? [...route, { event: { host: '🏠 Home', address: homeAddrDisplay }, lat: homeGeoDisplay.lat, lng: homeGeoDisplay.lng, isHome: true }]
+    : route;
+  window._currentDisplayRoute = displayRoute;
+  window._currentRoute = route;
+  rerenderRouteStops(displayRoute, route);
+}
+
+async function saveCustomOrder(route) {
+  // Save route_order index to each event in Supabase
+  const updates = route.map((p, i) =>
+    db.from('eid_events').update({ route_order: i }).eq('id', p.event.id)
+  );
+  await Promise.all(updates);
+  _customRoute = route;
+  // Show the toggle and My Order button
+  document.getElementById('routeModeToggle').style.display = 'flex';
+  document.getElementById('customRouteBtn').style.display = 'block';
+  showToast('📋 Custom order saved!');
+}
+
+async function loadCustomRoute() {
+  // Fetch events with route_order directly from Supabase
+  const { data, error } = await db
+    .from('eid_events')
+    .select('*')
+    .not('route_order', 'is', null)
+    .order('route_order', { ascending: true });
+
+  if (error || !data || data.length < 2) return null;
+
+  // Try matching against geocodedEvents first (has lat/lng already)
+  const fromGeo = data
+    .map(row => geocodedEvents.find(g => g.event.id === row.id))
+    .filter(Boolean);
+
+  if (fromGeo.length >= 2) return fromGeo;
+
+  // Fallback: build route from raw Supabase data for events that have lat/lng stored
+  const fromRaw = data
+    .filter(row => row.lat && row.lng)
+    .map(row => ({ event: normalizeRow(row), lat: row.lat, lng: row.lng }));
+
+  return fromRaw.length >= 2 ? fromRaw : null;
+}
+
+// ─── ROUTE DRAG TO REORDER ───────────────────────────────────────────────────
+let _dragSrcIndex = null;
+
+function routeDragStart(e) {
+  _dragSrcIndex = parseInt(e.currentTarget.dataset.index);
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function routeDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('#routeStops .route-stop').forEach(el => el.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+
+function routeDrop(e) {
+  e.preventDefault();
+  const destIndex = parseInt(e.currentTarget.dataset.index);
+  if (_dragSrcIndex === null || _dragSrcIndex === destIndex) return;
+
+  const displayRoute = window._currentDisplayRoute;
+  if (!displayRoute) return;
+
+  // Don't allow dragging to/from Home stop
+  if (displayRoute[_dragSrcIndex]?.isHome || displayRoute[destIndex]?.isHome) return;
+
+  // Reorder the display route
+  const newDisplay = [...displayRoute];
+  const [moved] = newDisplay.splice(_dragSrcIndex, 1);
+  newDisplay.splice(destIndex, 0, moved);
+  window._currentDisplayRoute = newDisplay;
+
+  // Also reorder the underlying route (excluding home)
+  const newRoute = newDisplay.filter(p => !p.isHome);
+  window._currentRoute = newRoute;
+
+  // Mark as custom mode and show save button — don't auto-save until user taps Save
+  _routeMode = 'custom';
+  localStorage.setItem('eid_route_mode', 'custom');
+  document.getElementById('routeTitleIcon').textContent = '📋';
+  document.getElementById('routeTitleText').textContent = 'My Custom Route';
+  document.getElementById('routeModeToggle').style.display = 'flex';
+  document.getElementById('customRouteBtn').style.display = 'block';
+  document.getElementById('bestRouteToggle').style.background = 'none';
+  document.getElementById('bestRouteToggle').style.color = 'var(--teal)';
+  document.getElementById('customRouteToggle').style.background = 'var(--teal)';
+  document.getElementById('customRouteToggle').style.color = 'white';
+  document.getElementById('saveOrderBtn').style.display = 'inline-flex';
+  // Flash the save button to draw attention
+  document.getElementById('saveOrderBtn').style.animation = 'pulse 1s ease-in-out 2';
+
+  // Re-render the route stops with new order and update map
+  rerenderRouteStops(newDisplay, newRoute);
+}
+
+function routeDragEnd(e) {
+  _dragSrcIndex = null;
+  document.querySelectorAll('#routeStops .route-stop').forEach(el => {
+    el.classList.remove('drag-over');
+    el.classList.remove('dragging');
+  });
+}
+
+function rerenderRouteStops(displayRoute, route) {
+  const homeGeoDisplay = getHomeGeocode();
+  const homeAddrDisplay = getHomeAddress();
+  const depMins = (() => { const [h,m] = getDepartureTime().split(':').map(Number); return h*60+m; })();
+  const homeGeoRoute = getHomeGeocode();
+  const AVG = AVG_SPEED_KMH;
+
+  // Recalculate arrivals
+  const arrivals = [];
+  let now = depMins, lat = homeGeoRoute ? homeGeoRoute.lat : route[0]?.lat, lng = homeGeoRoute ? homeGeoRoute.lng : route[0]?.lng;
+  for (const p of displayRoute) {
+    if (p.isHome) { arrivals.push({ arrStr: null }); continue; }
+    const dist = haversine(lat, lng, p.lat, p.lng);
+    const trav = (dist / AVG) * 60;
+    const arrival = now + trav;
+    const startMins = p.event.start ? p.event.start.split(':').map(Number).reduce((h,m)=>h*60+m,0) : arrival;
+    const endMins = (() => {
+      if (!p.event.end) return startMins + 60;
+      const e = p.event.end.split(':').map(Number).reduce((h,m)=>h*60+m,0);
+      return e <= startMins ? e + 1440 : e;
+    })();
+    const arrH = Math.floor(arrival/60), arrM = Math.round(arrival%60);
+    const isMissed = arrival > endMins, isLate = arrival > startMins, isTight = !isMissed && (endMins-arrival)<30;
+    arrivals.push({ arrStr: arrH+':'+String(arrM).padStart(2,'0'), isMissed, isLate, isTight });
+    now = Math.max(arrival, startMins) + MIN_VISIT_MINS;
+    lat = p.lat; lng = p.lng;
+  }
+
+  // Add home arrival
+  if (homeGeoDisplay && arrivals.length === displayRoute.length) {
+    const lastStop = route[route.length-1];
+    if (lastStop) {
+      const homeTrav = (haversine(lastStop.lat, lastStop.lng, homeGeoDisplay.lat, homeGeoDisplay.lng) / AVG) * 60;
+      const homeArr = now + homeTrav;
+      const homeH = Math.floor(homeArr/60), homeM = Math.round(homeArr%60);
+      const lastIdx = displayRoute.findIndex(p => p.isHome);
+      if (lastIdx >= 0) arrivals[lastIdx] = { arrStr: homeH+':'+String(homeM).padStart(2,'0'), isMissed:false, isLate:false, isTight:false };
+    }
+  }
+
+  document.getElementById('routeStops').innerHTML = displayRoute.map((p, i) => {
+    const arr = arrivals[i] || {};
+    const { arrStr, isMissed, isLate, isTight } = arr;
+    const isHome = p.isHome;
+    const flagHtml = isMissed ? '<span class="route-stop-flag route-flag-missed">⛔ missed</span>'
+                   : isTight  ? '<span class="route-stop-flag route-flag-tight">⏰ tight</span>'
+                   : isLate   ? '<span class="route-stop-flag route-flag-late">⚠️ late</span>' : '';
+    const isAllDayStop2 = p.event.start === '00:00' && p.event.end === '23:59';
+    const windowHtml = (!isHome && p.event.start && p.event.end && !isAllDayStop2)
+      ? '<span class="route-window">' + formatTime(p.event.start) + ' – ' + formatTime(p.event.end) + '</span>'
+      : (!isHome && p.event.start && !isAllDayStop2)
+      ? '<span class="route-window">from ' + formatTime(p.event.start) + '</span>'
+      : (!isHome && isAllDayStop2)
+      ? '<span class="route-window" style="opacity:0.6;">🏠 all day</span>'
+      : '';
+    const arrHtml = arrStr ? '<span class="route-arrive" title="Estimated arrival time">arrive ~' + formatTime(arrStr) + '</span>' : '';
+    return '<div class="route-stop' + (isMissed ? '" style="opacity:0.5"' : '"') + '" draggable="' + (!isHome ? 'true':'false') + '" data-index="' + i + '" ondragstart="routeDragStart(event)" ondragover="routeDragOver(event)" ondrop="routeDrop(event)" ondragend="routeDragEnd(event)">'
+      + '<div class="route-stop-left">'
+      + '<div class="route-stop-num' + (isHome ? ' home' : '') + '">' + (isHome ? '🏠' : (i+1)) + '</div>'
+      + (!isHome ? '<div class="drag-handle">⠿</div>' : '')
+      + '</div>'
+      + '<div class="route-stop-body">'
+      + '<div class="route-stop-name">' + (p.event.must_visit ? '❤️ ' : '') + escHtml(p.event.host) + '</div>'
+      + '<div class="route-stop-times">' + arrHtml + windowHtml + flagHtml + '</div>'
+      + (!isHome ? '<div style="margin-top:0.3rem;"><button class="left-at-btn" id="left-btn-' + i + '" onclick="markLeftAt(' + i + ')" title="Tap when you leave this stop">🚗 Left at…</button></div>' : '')
+      + '</div></div>';
+  }).join('');
+
+  // Update map polyline and markers
+  if (leafletMap && route.length > 0) {
+    if (routePolyline) { routePolyline.remove(); routePolyline = null; }
+    const latlngs = route.map(p => [p.lat, p.lng]);
+    routePolyline = L.polyline(latlngs, { color:'#C9A84C', weight:3.5, opacity:0.9, dashArray:'8,6' }).addTo(leafletMap);
+    mapMarkers.forEach(m => m.remove());
+    mapMarkers = [];
+    // Build a map from event id → arrival info (from displayRoute arrivals)
+    const arrivalMap = {};
+    displayRoute.forEach((p, i) => { if (!p.isHome) arrivalMap[p.event.id] = arrivals[i] || {}; });
+    route.forEach((p, i) => {
+      const ev = p.event;
+      const arr = arrivalMap[ev.id] || {};
+      const isMissed = arr.isMissed || ev.visited;
+      const color = isMissed ? '#9E9E9E' : i === 0 ? '#2A8A9F' : '#1A5C6B';
+      const marker = L.marker([p.lat, p.lng], {
+        icon: makeMarkerIcon(i+1, color, isMissed),
+        zIndexOffset: isMissed ? -100 : 0
+      }).addTo(leafletMap);
+      marker.bindPopup(markerPopupHtml(ev, `Stop ${i+1}${i===0?' · Start':''}`), { maxWidth: 260 });
+      mapMarkers.push(marker);
+    });
+    leafletMap.fitBounds(latlngs, { padding: [40, 40] });
+  }
+
+  // Update Google Maps link
+  const homeAddr = getHomeAddress();
+  const origin = encodeURIComponent(homeAddr || route[0]?.event.address || '');
+  const dest = encodeURIComponent(homeAddr || route[route.length-1]?.event.address || '');
+  const waypoints = (homeAddr ? route : route.slice(1,-1)).map(p => encodeURIComponent(p.event.address)).join('|');
+  document.getElementById('routeGmapsLink').href =
+    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
+}
+
+// ─── LIVE ROUTE TRACKING ─────────────────────────────────────────────────────
+let _leftAtOverrides = {}; // index → actual departure time in mins
+
+function markLeftAt(stopIndex) {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+
+  _leftAtOverrides[stopIndex] = nowMins;
+
+  // Update button to show actual time
+  const btn = document.getElementById('left-btn-' + stopIndex);
+  if (btn) {
+    btn.textContent = '✓ Left ' + formatTime(timeStr);
+    btn.classList.add('active');
+  }
+
+  // Recalculate all subsequent arrival times
+  recalcFromStop(stopIndex, nowMins);
+  showToast('🚗 Left at ' + formatTime(timeStr) + ' — times updated');
+}
+
+function recalcFromStop(fromStopIndex, departTimeMins) {
+  const route = window._currentRoute;
+  const displayRoute = window._currentDisplayRoute;
+  if (!route || !displayRoute) return;
+
+  const AVG = AVG_SPEED_KMH;
+  let now = departTimeMins;
+  let lat = route[fromStopIndex].lat;
+  let lng = route[fromStopIndex].lng;
+
+  // Recalculate arrivals for all stops after fromStopIndex
+  for (let i = fromStopIndex + 1; i < displayRoute.length; i++) {
+    const p = displayRoute[i];
+    if (p.isHome) {
+      // Update home arrival
+      const homeTrav = (haversine(lat, lng, p.lat, p.lng) / AVG) * 60;
+      const homeArr = now + homeTrav;
+      const homeH = Math.floor(homeArr / 60), homeM = Math.round(homeArr % 60);
+      const arrEl = document.querySelector('#routeStops .route-stop:nth-child(' + (i + 1) + ') .route-arrive');
+      if (arrEl) arrEl.textContent = 'arrive ~' + formatTime(homeH + ':' + String(homeM).padStart(2, '0'));
+      break;
+    }
+
+    const trav = (haversine(lat, lng, p.lat, p.lng) / AVG) * 60;
+    const arrival = now + trav;
+    const startMins = p.event.start ? p.event.start.split(':').map(Number).reduce((h, m) => h * 60 + m, 0) : arrival;
+    const endMins = (() => {
+      if (!p.event.end) return startMins + 60;
+      const e = p.event.end.split(':').map(Number).reduce((h, m) => h * 60 + m, 0);
+      return e <= startMins ? e + 1440 : e;
+    })();
+
+    const arrH = Math.floor(arrival / 60), arrM = Math.round(arrival % 60);
+    const arrStr = arrH + ':' + String(arrM).padStart(2, '0');
+    const isMissed = arrival > endMins;
+    const isLate = arrival > startMins;
+    const isTight = !isMissed && (endMins - arrival) < 30;
+
+    // Update DOM directly — just the times row
+    const stopEl = document.querySelectorAll('#routeStops .route-stop')[i];
+    if (stopEl) {
+      const arrEl = stopEl.querySelector('.route-arrive');
+      if (arrEl) arrEl.textContent = 'arrive ~' + formatTime(arrStr);
+
+      // Update flag
+      const flagEl = stopEl.querySelector('.route-stop-flag');
+      const newFlag = isMissed ? '<span class="route-stop-flag route-flag-missed">⛔ missed</span>'
+                    : isTight  ? '<span class="route-stop-flag route-flag-tight">⏰ tight</span>'
+                    : isLate   ? '<span class="route-stop-flag route-flag-late">⚠️ late</span>'
+                    : '';
+      if (flagEl) {
+        flagEl.outerHTML = newFlag;
+      } else if (newFlag) {
+        const timesEl = stopEl.querySelector('.route-stop-times');
+        if (timesEl) timesEl.insertAdjacentHTML('beforeend', newFlag);
+      }
+
+      // Update marker colour on map
+      if (mapMarkers[i]) {
+        mapMarkers[i].remove();
+        const color = isMissed ? '#9E9E9E' : i === 0 ? '#2A8A9F' : '#1A5C6B';
+        mapMarkers[i] = L.marker([p.lat, p.lng], {
+          icon: makeMarkerIcon(i + 1, color, isMissed),
+          zIndexOffset: isMissed ? -100 : 0
+        }).addTo(leafletMap);
+        mapMarkers[i].bindPopup(markerPopupHtml(p.event, `Stop ${i + 1}`), { maxWidth: 260 });
+      }
+    }
+
+    // If user already recorded leaving this stop, use that time instead
+    now = _leftAtOverrides[i] !== undefined
+      ? _leftAtOverrides[i]
+      : Math.max(arrival, startMins) + MIN_VISIT_MINS;
+    lat = p.lat; lng = p.lng;
+  }
+}
+
+function recalcTimes() {
+  const route = window._currentRoute;
+  const displayRoute = window._currentDisplayRoute;
+  if (!route || !route.length) { showToast('Calculate a route first'); return; }
+
+  // Re-render with current departure time — keeps same order
+  rerenderRouteStops(displayRoute, route);
+  const dep = getDepartureTime();
+  showToast(`🕐 Times updated from ${formatTime(dep.replace(':','') === dep ? dep+':00' : dep)}`);
+}
+
+function showCustomRoute() {
+  if (!_customRoute) {
+    showToast('No custom order yet — tap ✦ Best Route then drag stops to reorder, then tap 💾 Save Order');
+    return;
+  }
+  switchRouteMode('custom');
+  document.getElementById('routePanel').classList.add('visible');
+  document.getElementById('routePanel').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function saveCurrentOrder() {
+  const route = window._currentRoute;
+  if (!route || !route.length) { showToast('No route to save'); return; }
+  const btn = document.getElementById('saveOrderBtn');
+  btn.textContent = '💾 Saving...';
+  btn.disabled = true;
+  await saveCustomOrder(route);
+  btn.textContent = '✓ Saved!';
+  btn.style.background = '#4CAF50';
+  setTimeout(() => {
+    btn.textContent = '💾 Save Order';
+    btn.style.background = 'var(--teal)';
+    btn.disabled = false;
+  }, 2000);
 }
 
 // ─── TESLA NAVIGATION ────────────────────────────────────────────────────────
