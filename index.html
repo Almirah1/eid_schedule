@@ -861,43 +861,107 @@
 
   .route-stops {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    align-items: center;
+    flex-direction: column;
+    gap: 0;
   }
 
   .route-stop {
     display: flex;
+    align-items: stretch;
+    gap: 0;
+    position: relative;
+  }
+
+  /* Vertical connector line between stops */
+  .route-stop:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 32px;
+    bottom: -8px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--teal), rgba(201,168,76,0.4));
+    z-index: 0;
+  }
+
+  .route-stop-left {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.3rem;
-    background: var(--white);
-    border: 1.5px solid var(--cream-dark);
-    border-radius: 50px;
-    padding: 0.3rem 0.8rem;
-    font-size: 0.8rem;
-    color: var(--teal-dark);
-    font-weight: 500;
+    width: 28px;
+    flex-shrink: 0;
+    padding-top: 3px;
   }
 
   .route-stop-num {
-    width: 18px;
-    height: 18px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     background: var(--teal);
     color: var(--white);
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
   }
 
-  .route-arrow {
-    color: var(--gold);
-    font-size: 1rem;
-    font-weight: bold;
+  .route-stop-num.home {
+    background: var(--gold);
+    color: var(--teal-dark);
+    font-size: 0.9rem;
   }
+
+  .route-stop-body {
+    flex: 1;
+    padding: 0.1rem 0 0.9rem 0.7rem;
+  }
+
+  .route-stop-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--teal-dark);
+    line-height: 1.3;
+  }
+
+  .route-stop-times {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+    flex-wrap: wrap;
+  }
+
+  .route-arrive {
+    font-size: 0.78rem;
+    color: var(--teal);
+    font-weight: 600;
+  }
+
+  .route-window {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: var(--cream);
+    padding: 0.1rem 0.45rem;
+    border-radius: 20px;
+    border: 1px solid var(--cream-dark);
+  }
+
+  .route-stop-flag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 20px;
+  }
+
+  .route-flag-missed  { background:rgba(220,50,50,0.1);  color:#C0392B; }
+  .route-flag-tight   { background:rgba(255,165,0,0.12); color:#B8700A; }
+  .route-flag-late    { background:rgba(255,165,0,0.12); color:#B8700A; }
+
+  .route-arrow { display: none; } /* no longer needed */
 
   .route-gmaps-btn {
     display: inline-flex;
@@ -1683,6 +1747,30 @@
       </div>
     </div>
     <div class="field-group"><label>Notes</label><textarea id="editNotes"></textarea></div>
+
+    <!-- Lat/Lng override -->
+    <div style="margin-bottom:1rem;">
+      <button type="button" onclick="toggleLatLng()" style="background:none;border:none;color:var(--teal);font-size:0.8rem;cursor:pointer;padding:0;display:flex;align-items:center;gap:0.3rem;font-family:'DM Sans',sans-serif;">
+        <span id="latLngChevron">▸</span> Override map location (lat/lng)
+      </button>
+      <div id="latLngFields" style="display:none;margin-top:0.6rem;">
+        <p style="font-size:0.75rem;color:#6B6B6B;margin-bottom:0.5rem;">Use this if the map pin is in the wrong place. Find coords at <a href="https://www.latlong.net" target="_blank" style="color:var(--teal);">latlong.net</a> or right-click in Google Maps.</p>
+        <div style="display:flex;gap:0.5rem;">
+          <div style="flex:1;">
+            <label style="font-size:0.75rem;color:#6B6B6B;display:block;margin-bottom:0.25rem;">Latitude</label>
+            <input type="number" id="editLat" step="any" placeholder="-36.8485"
+              style="width:100%;padding:0.5rem 0.65rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:8px;font-size:0.9rem;font-family:'DM Sans',sans-serif;color:#0D3A45;box-sizing:border-box;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:0.75rem;color:#6B6B6B;display:block;margin-bottom:0.25rem;">Longitude</label>
+            <input type="number" id="editLng" step="any" placeholder="174.7633"
+              style="width:100%;padding:0.5rem 0.65rem;border:1.5px solid rgba(201,168,76,0.3);border-radius:8px;font-size:0.9rem;font-family:'DM Sans',sans-serif;color:#0D3A45;box-sizing:border-box;">
+          </div>
+        </div>
+        <button type="button" onclick="clearLatLngOverride()" style="margin-top:0.4rem;background:none;border:none;color:#C0392B;font-size:0.75rem;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">✖ Clear override (re-geocode from address)</button>
+      </div>
+    </div>
+
     <div class="action-row">
       <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
@@ -2282,10 +2370,21 @@ function openEdit(id) {
   document.getElementById('editEnd').value = ev.end || '';
   document.getElementById('editAddress').value = ev.address || '';
   document.getElementById('editNotes').value = ev.notes || '';
+  // Populate lat/lng override fields
+  document.getElementById('editLat').value = ev.lat || '';
+  document.getElementById('editLng').value = ev.lng || '';
+  // Show lat/lng section expanded if they have an override
+  const hasOverride = ev.lat && ev.lng;
+  document.getElementById('latLngFields').style.display = hasOverride ? 'block' : 'none';
+  document.getElementById('latLngChevron').textContent = hasOverride ? '▾' : '▸';
   document.getElementById('editModal').classList.add('open');
 }
 
 async function saveEdit() {
+  const latVal = parseFloat(document.getElementById('editLat').value);
+  const lngVal = parseFloat(document.getElementById('editLng').value);
+  const hasValidCoords = !isNaN(latVal) && !isNaN(lngVal) && latVal !== 0 && lngVal !== 0;
+
   const { error } = await db.from('eid_events').update({
     host: document.getElementById('editHost').value.trim(),
     date: document.getElementById('editDate').value || null,
@@ -2293,7 +2392,16 @@ async function saveEdit() {
     end_time: document.getElementById('editEnd').value || null,
     address: document.getElementById('editAddress').value.trim() || null,
     notes: document.getElementById('editNotes').value.trim() || null,
+    lat: hasValidCoords ? latVal : null,
+    lng: hasValidCoords ? lngVal : null,
   }).eq('id', editingId);
+
+  // Update in-memory event too
+  const ev = events.find(e => e.id === editingId);
+  if (ev) {
+    ev.lat = hasValidCoords ? latVal : null;
+    ev.lng = hasValidCoords ? lngVal : null;
+  }
 
   if (error) { showToast('✖️ Could not update'); return; }
   closeModal();
@@ -2302,7 +2410,22 @@ async function saveEdit() {
 
 function closeModal() {
   document.getElementById('editModal').classList.remove('open');
+  document.getElementById('editAutoList').style.display = 'none';
   editingId = null;
+}
+
+function toggleLatLng() {
+  const fields = document.getElementById('latLngFields');
+  const chevron = document.getElementById('latLngChevron');
+  const isOpen = fields.style.display !== 'none';
+  fields.style.display = isOpen ? 'none' : 'block';
+  chevron.textContent = isOpen ? '▸' : '▾';
+}
+
+function clearLatLngOverride() {
+  document.getElementById('editLat').value = '';
+  document.getElementById('editLng').value = '';
+  showToast('📍 Coords cleared — will re-geocode from address on next map load');
 }
 
 document.getElementById('editModal').addEventListener('click', e => {
@@ -3285,18 +3408,41 @@ async function calcRoute() {
   }
 
   document.getElementById('routeStops').innerHTML = displayRoute.map((p, i) => {
-    const { arrStr, isMissed, isLate, isTight } = arrivals[i];
-    const flag = isMissed ? ' <span style="color:#C0392B;font-size:0.65rem;">⛔ missed</span>'
-               : isTight  ? ' <span style="color:#B8700A;font-size:0.65rem;">⏰ tight</span>'
-               : isLate   ? ' <span style="color:#B8700A;font-size:0.65rem;">⚠️ late</span>'
-               : '';
-    return (i > 0 ? '<span class="route-arrow">→</span>' : '')
-      + '<div class="route-stop' + (isMissed ? '" style="opacity:0.5' : '') + '">'
-      + '<div class="route-stop-num">' + (i+1) + '</div>'
-      + '<div>'
-      + escHtml(p.event.host)
-      + '<div style="font-size:0.65rem;color:#6B6B6B;margin-top:1px;">~' + formatTime(arrStr) + flag + '</div>'
-      + '</div></div>';
+    const arr = arrivals[i] || {};
+    const { arrStr, isMissed, isLate, isTight } = arr;
+    const isHome = p.isHome;
+
+    const flagHtml = isMissed ? '<span class="route-stop-flag route-flag-missed">⛔ missed</span>'
+                   : isTight  ? '<span class="route-stop-flag route-flag-tight">⏰ tight</span>'
+                   : isLate   ? '<span class="route-stop-flag route-flag-late">⚠️ late</span>'
+                   : '';
+
+    // Invite window: "opens 2:00pm – closes 8:00pm"
+    const windowHtml = (!isHome && p.event.start && p.event.end)
+      ? '<span class="route-window">' + formatTime(p.event.start) + ' – ' + formatTime(p.event.end) + '</span>'
+      : (!isHome && p.event.start)
+      ? '<span class="route-window">from ' + formatTime(p.event.start) + '</span>'
+      : '';
+
+    const arrHtml = arrStr
+      ? '<span class="route-arrive">~' + formatTime(arrStr) + '</span>'
+      : '';
+
+    return '<div class="route-stop' + (isMissed ? '" style="opacity:0.5"' : '"') + '>'
+      + '<div class="route-stop-left">'
+      + '<div class="route-stop-num' + (isHome ? ' home' : '') + '">'
+      + (isHome ? '🏠' : (i + 1))
+      + '</div>'
+      + '</div>'
+      + '<div class="route-stop-body">'
+      + '<div class="route-stop-name">' + escHtml(p.event.host) + '</div>'
+      + '<div class="route-stop-times">'
+      + arrHtml
+      + windowHtml
+      + flagHtml
+      + '</div>'
+      + '</div>'
+      + '</div>';
   }).join('');
 
   // Google Maps URL
