@@ -3418,40 +3418,57 @@ function nearestNeighbourRoute(points) {
   }
 
   // ── 2-opt improvement ────────────────────────────────────────────────────
-  // Repeatedly swap segments to eliminate route crossings.
-  // Respects time windows: only swap if neither stop misses its closing time.
-  // Run until no improving swap found (or max 100 passes for performance).
-  const routeCost = (r) => {
+  // Swap pairs of stops (not segments) to reduce total travel time,
+  // but ONLY if both stops still arrive before their closing time after the swap.
+  // We swap individual stops rather than reversing segments to preserve time order.
+  const simRoute = (r) => {
+    // Simulate the route and return total travel cost + missed window penalties
     let cost = 0;
-    const startLat = homeGeo ? homeGeo.lat : r[0].lat;
-    const startLng = homeGeo ? homeGeo.lng : r[0].lng;
-    let pLat = startLat, pLng = startLng, t = departMins;
+    let pLat = homeGeo ? homeGeo.lat : r[0].lat;
+    let pLng = homeGeo ? homeGeo.lng : r[0].lng;
+    let t = departMins;
     for (const p of r) {
       const trav = travelTimeMins({ lat: pLat, lng: pLng }, p);
-      cost += trav + Math.max(0, t + trav - endOf(p)) * 500;
-      t = Math.max(t + trav, timeToMins(p.event.start) || t + trav) + MIN_VISIT_MINS;
+      const arrival = t + trav;
+      const end = endOf(p);
+      cost += trav + Math.max(0, arrival - end) * 1000;
+      t = Math.max(arrival, timeToMins(p.event.start) || arrival) + MIN_VISIT_MINS;
       pLat = p.lat; pLng = p.lng;
     }
     if (homeGeo) cost += travelTimeMins({ lat: pLat, lng: pLng }, homeGeo) * 8;
     return cost;
   };
 
+  const isFeasible = (r) => {
+    // Check no stop misses its closing time
+    let pLat = homeGeo ? homeGeo.lat : r[0].lat;
+    let pLng = homeGeo ? homeGeo.lng : r[0].lng;
+    let t = departMins;
+    for (const p of r) {
+      const trav = travelTimeMins({ lat: pLat, lng: pLng }, p);
+      const arrival = t + trav;
+      if (arrival > endOf(p)) return false; // misses closing time
+      t = Math.max(arrival, timeToMins(p.event.start) || arrival) + MIN_VISIT_MINS;
+      pLat = p.lat; pLng = p.lng;
+    }
+    return true;
+  };
+
   let improved = true;
   let passes = 0;
-  while (improved && passes < 100) {
+  const baseCost = simRoute(route);
+  while (improved && passes < 20) {
     improved = false;
     passes++;
-    for (let i = 0; i < route.length - 1; i++) {
-      for (let j = i + 2; j < route.length; j++) {
-        // Try reversing the segment between i+1 and j
-        const newRoute = [
-          ...route.slice(0, i + 1),
-          ...route.slice(i + 1, j + 1).reverse(),
-          ...route.slice(j + 1)
-        ];
-        if (routeCost(newRoute) < routeCost(route) - 0.01) {
-          route.splice(0, route.length, ...newRoute);
+    outer: for (let i = 0; i < route.length - 1; i++) {
+      for (let j = i + 1; j < route.length; j++) {
+        // Try swapping stop i and stop j
+        const candidate = [...route];
+        [candidate[i], candidate[j]] = [candidate[j], candidate[i]];
+        if (isFeasible(candidate) && simRoute(candidate) < simRoute(route) - 0.5) {
+          route.splice(0, route.length, ...candidate);
           improved = true;
+          break outer; // restart after any improvement
         }
       }
     }
