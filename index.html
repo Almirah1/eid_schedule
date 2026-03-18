@@ -3445,15 +3445,32 @@ async function calcRoute() {
       + '</div>';
   }).join('');
 
-  // Google Maps URL
-  const homeAddr = getHomeAddress();
-  const origin = encodeURIComponent(homeAddr || route[0].event.address);
-  const dest = encodeURIComponent(homeAddr || route[route.length-1].event.address);
-  const allStops = homeAddr ? route : route.slice(1);
-  const waypointStops = homeAddr ? route : route.slice(1,-1);
-  const waypoints = waypointStops.map(p => encodeURIComponent(p.event.address)).join('|');
+  // Google Maps URL — use lat,lng for each stop if available, fall back to address
+  const homeGeoMaps = getHomeGeocode();
+  const homeAddrMaps = getHomeAddress();
+
+  const pointToParam = (lat, lng, address) => {
+    if (lat && lng) return encodeURIComponent(`${lat},${lng}`);
+    return encodeURIComponent(address || '');
+  };
+
+  const origin = homeGeoMaps
+    ? pointToParam(homeGeoMaps.lat, homeGeoMaps.lng)
+    : pointToParam(route[0].lat, route[0].lng, route[0].event.address);
+
+  const lastStop = route[route.length - 1];
+  const dest = homeGeoMaps
+    ? pointToParam(homeGeoMaps.lat, homeGeoMaps.lng)
+    : pointToParam(lastStop.lat, lastStop.lng, lastStop.event.address);
+
+  // All route stops are waypoints (Google Maps handles up to 9 waypoints)
+  const waypointStops = homeGeoMaps ? route : route.slice(1, -1);
+  const waypoints = waypointStops
+    .map(p => pointToParam(p.lat, p.lng, p.event.address))
+    .join('|');
+
   document.getElementById('routeGmapsLink').href =
-    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
+    `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints ? '&waypoints=' + waypoints : ''}&travelmode=driving`;
 
   document.getElementById('routePanel').classList.add('visible');
   showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
