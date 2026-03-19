@@ -893,13 +893,16 @@
     padding-top: 3px;
   }
   .drag-handle {
-    font-size: 0.9rem;
-    color: var(--cream-dark);
+    font-size: 1.4rem;
+    color: rgba(26,92,107,0.35);
     cursor: grab;
     margin-top: 4px;
     line-height: 1;
     user-select: none;
+    padding: 4px 2px;
+    touch-action: none;
   }
+  .drag-handle:active { color: var(--teal); }
   .route-stop[draggable="true"] { cursor: grab; }
   .route-stop.drag-over { background: var(--cream); border-radius: 12px; outline: 2px dashed var(--gold); }
   .route-stop.dragging { opacity: 0.4; }
