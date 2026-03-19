@@ -1810,6 +1810,9 @@
           <button class="route-gmaps-btn" onclick="recalcTimes()" style="margin-top:0;cursor:pointer;border:none;background:var(--cream);color:var(--teal-dark);border:1.5px solid var(--cream-dark);" title="Recalculate arrival times from current departure time">
             🕐 Recalc Times
           </button>
+          <button class="route-gmaps-btn" onclick="reoptimiseRemaining()" style="margin-top:0;cursor:pointer;border:none;background:var(--teal-light);color:white;" title="Re-optimise remaining stops from current position and time">
+            ✦ Re-optimise
+          </button>
           <a class="route-gmaps-btn" id="routeGmapsLink" href="#" target="_blank" style="margin-top:0;">
             📍 Open in Google Maps
           </a>
@@ -3884,6 +3887,7 @@ async function calcRoute() {
     `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypoints?'&waypoints='+waypoints:''}&travelmode=driving`;
 
   document.getElementById('routePanel').classList.add('visible');
+  setTimeout(attachTouchDrag, 50);
   showToast(`✦ Best route for ${dayLabel}: ${route.length} stops`);
 }
 
@@ -4028,67 +4032,133 @@ async function loadCustomRoute() {
 }
 
 // ─── ROUTE DRAG TO REORDER ───────────────────────────────────────────────────
+// ── Touch + mouse drag for route reordering ──────────────────────────────────
 let _dragSrcIndex = null;
+let _touchDragEl = null;
+let _touchClone = null;
+let _touchStartY = 0;
 
+// Desktop drag
 function routeDragStart(e) {
   _dragSrcIndex = parseInt(e.currentTarget.dataset.index);
   e.currentTarget.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
 }
-
 function routeDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   document.querySelectorAll('#routeStops .route-stop').forEach(el => el.classList.remove('drag-over'));
   e.currentTarget.classList.add('drag-over');
 }
-
-function routeDrop(e) {
-  e.preventDefault();
-  const destIndex = parseInt(e.currentTarget.dataset.index);
-  if (_dragSrcIndex === null || _dragSrcIndex === destIndex) return;
-
-  const displayRoute = window._currentDisplayRoute;
-  if (!displayRoute) return;
-
-  // Don't allow dragging to/from Home stop
-  if (displayRoute[_dragSrcIndex]?.isHome || displayRoute[destIndex]?.isHome) return;
-
-  // Reorder the display route
-  const newDisplay = [...displayRoute];
-  const [moved] = newDisplay.splice(_dragSrcIndex, 1);
-  newDisplay.splice(destIndex, 0, moved);
-  window._currentDisplayRoute = newDisplay;
-
-  // Also reorder the underlying route (excluding home)
-  const newRoute = newDisplay.filter(p => !p.isHome);
-  window._currentRoute = newRoute;
-
-  // Mark as custom mode and show save button — don't auto-save until user taps Save
-  _routeMode = 'custom';
-  localStorage.setItem('eid_route_mode', 'custom');
-  document.getElementById('routeTitleIcon').textContent = '📋';
-  document.getElementById('routeTitleText').textContent = 'My Custom Route';
-  document.getElementById('routeModeToggle').style.display = 'flex';
-  document.getElementById('customRouteBtn').style.display = 'block';
-  document.getElementById('bestRouteToggle').style.background = 'none';
-  document.getElementById('bestRouteToggle').style.color = 'var(--teal)';
-  document.getElementById('customRouteToggle').style.background = 'var(--teal)';
-  document.getElementById('customRouteToggle').style.color = 'white';
-  document.getElementById('saveOrderBtn').style.display = 'inline-flex';
-  // Flash the save button to draw attention
-  document.getElementById('saveOrderBtn').style.animation = 'pulse 1s ease-in-out 2';
-
-  // Re-render the route stops with new order and update map
-  rerenderRouteStops(newDisplay, newRoute);
-}
-
 function routeDragEnd(e) {
   _dragSrcIndex = null;
   document.querySelectorAll('#routeStops .route-stop').forEach(el => {
     el.classList.remove('drag-over');
     el.classList.remove('dragging');
   });
+}
+function routeDrop(e) {
+  e.preventDefault();
+  const destIndex = parseInt(e.currentTarget.dataset.index);
+  applyRouteReorder(_dragSrcIndex, destIndex);
+}
+
+// Touch drag — attached via JS after render so we can use proper touch events
+function attachTouchDrag() {
+  const stops = document.querySelectorAll('#routeStops .route-stop[draggable="true"]');
+  stops.forEach(el => {
+    const handle = el.querySelector('.drag-handle');
+    if (!handle) return;
+    handle.addEventListener('touchstart', onTouchDragStart, { passive: false });
+  });
+}
+
+function onTouchDragStart(e) {
+  e.preventDefault();
+  const el = e.currentTarget.closest('.route-stop');
+  _dragSrcIndex = parseInt(el.dataset.index);
+  _touchDragEl = el;
+  _touchStartY = e.touches[0].clientY;
+
+  // Clone for visual drag indicator
+  _touchClone = el.cloneNode(true);
+  _touchClone.style.cssText = `position:fixed;left:${el.getBoundingClientRect().left}px;top:${el.getBoundingClientRect().top}px;width:${el.offsetWidth}px;opacity:0.85;background:var(--cream);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;pointer-events:none;transition:none;`;
+  document.body.appendChild(_touchClone);
+  el.style.opacity = '0.3';
+
+  document.addEventListener('touchmove', onTouchDragMove, { passive: false });
+  document.addEventListener('touchend', onTouchDragEnd);
+}
+
+function onTouchDragMove(e) {
+  e.preventDefault();
+  if (!_touchClone) return;
+  const touch = e.touches[0];
+  const dy = touch.clientY - _touchStartY;
+  const rect = _touchDragEl.getBoundingClientRect();
+  _touchClone.style.top = (rect.top + dy) + 'px';
+
+  // Highlight the stop we're hovering over
+  document.querySelectorAll('#routeStops .route-stop').forEach(el => el.classList.remove('drag-over'));
+  const els = document.querySelectorAll('#routeStops .route-stop');
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (touch.clientY >= r.top && touch.clientY <= r.bottom) {
+      el.classList.add('drag-over');
+      break;
+    }
+  }
+}
+
+function onTouchDragEnd(e) {
+  document.removeEventListener('touchmove', onTouchDragMove);
+  document.removeEventListener('touchend', onTouchDragEnd);
+
+  if (_touchClone) { _touchClone.remove(); _touchClone = null; }
+  if (_touchDragEl) { _touchDragEl.style.opacity = ''; _touchDragEl = null; }
+
+  // Find drop target
+  const touch = e.changedTouches[0];
+  document.querySelectorAll('#routeStops .route-stop').forEach(el => el.classList.remove('drag-over'));
+  const els = document.querySelectorAll('#routeStops .route-stop');
+  let destIndex = null;
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (touch.clientY >= r.top && touch.clientY <= r.bottom) {
+      destIndex = parseInt(el.dataset.index);
+      break;
+    }
+  }
+  if (destIndex !== null) applyRouteReorder(_dragSrcIndex, destIndex);
+  _dragSrcIndex = null;
+}
+
+function applyRouteReorder(srcIndex, destIndex) {
+  if (srcIndex === null || srcIndex === destIndex) return;
+  const displayRoute = window._currentDisplayRoute;
+  if (!displayRoute) return;
+  if (displayRoute[srcIndex]?.isHome || displayRoute[destIndex]?.isHome) return;
+
+  const newDisplay = [...displayRoute];
+  const [moved] = newDisplay.splice(srcIndex, 1);
+  newDisplay.splice(destIndex, 0, moved);
+  window._currentDisplayRoute = newDisplay;
+  const newRoute = newDisplay.filter(p => !p.isHome);
+  window._currentRoute = newRoute;
+
+  _routeMode = 'custom';
+  localStorage.setItem('eid_route_mode', 'custom');
+  document.getElementById('routeTitleIcon').textContent = '📋';
+  document.getElementById('routeTitleText').textContent = 'My Custom Route';
+  document.getElementById('routeModeToggle').style.display = 'flex';
+  document.getElementById('customRouteBtn').style.display = 'inline-flex';
+  document.getElementById('bestRouteToggle').style.background = 'none';
+  document.getElementById('bestRouteToggle').style.color = 'var(--teal)';
+  document.getElementById('customRouteToggle').style.background = 'var(--teal)';
+  document.getElementById('customRouteToggle').style.color = 'white';
+  document.getElementById('saveOrderBtn').style.display = 'inline-flex';
+
+  rerenderRouteStops(newDisplay, newRoute);
 }
 
 function rerenderRouteStops(displayRoute, route) {
@@ -4183,6 +4253,9 @@ function rerenderRouteStops(displayRoute, route) {
     });
     leafletMap.fitBounds(latlngs, { padding: [40, 40] });
   }
+
+  // Attach touch drag to newly rendered stops
+  setTimeout(attachTouchDrag, 50);
 
   // Update Google Maps link
   const homeAddr = getHomeAddress();
@@ -4290,6 +4363,66 @@ function recalcFromStop(fromStopIndex, departTimeMins) {
       : Math.max(arrival, startMins) + MIN_VISIT_MINS;
     lat = p.lat; lng = p.lng;
   }
+}
+
+async function reoptimiseRemaining() {
+  const route = window._currentRoute;
+  if (!route || !route.length) { showToast('Calculate a route first'); return; }
+
+  // Find the last stop we've marked as left
+  const leftIndices = Object.keys(_leftAtOverrides).map(Number).sort((a,b) => b-a);
+  const lastLeftIndex = leftIndices.length > 0 ? leftIndices[0] : -1;
+
+  // Remaining = unvisited stops after lastLeftIndex
+  const visited = new Set(route.filter(p => p.event.visited).map(p => p.event.id));
+  const remaining = route.filter((p, i) => i > lastLeftIndex && !visited.has(p.event.id));
+
+  if (remaining.length < 2) {
+    showToast('Not enough remaining stops to re-optimise');
+    return;
+  }
+
+  // Current position and time
+  const currentLat = lastLeftIndex >= 0 ? route[lastLeftIndex].lat : (getHomeGeocode()?.lat || route[0].lat);
+  const currentLng = lastLeftIndex >= 0 ? route[lastLeftIndex].lng : (getHomeGeocode()?.lng || route[0].lng);
+  const currentTime = lastLeftIndex >= 0
+    ? (_leftAtOverrides[lastLeftIndex] || (new Date().getHours()*60 + new Date().getMinutes()))
+    : (new Date().getHours()*60 + new Date().getMinutes());
+
+  showToast('✦ Re-optimising remaining stops…');
+
+  // Fetch OSRM for remaining stops
+  const homeGeo = getHomeGeocode();
+  const matrixPts = [{ lat: currentLat, lng: currentLng }, ...remaining];
+  await fetchDrivingMatrix(matrixPts);
+
+  // Override departure time temporarily
+  const origDepart = getDepartureTime();
+  const tempH = Math.floor(currentTime/60), tempM = currentTime%60;
+  localStorage.setItem('eid_departure_time', tempH+':'+String(tempM).padStart(2,'0'));
+
+  // Run optimiser on remaining stops from current position
+  const optimised = nearestNeighbourRoute(remaining, currentLat, currentLng);
+
+  // Restore departure time
+  localStorage.setItem('eid_departure_time', origDepart);
+
+  // Build new full route: done stops + optimised remaining
+  const done = route.slice(0, lastLeftIndex + 1);
+  const newRoute = [...done, ...optimised];
+
+  // Rebuild display route
+  const homeGeoDisplay = getHomeGeocode();
+  const homeAddrDisplay = getHomeAddress();
+  const newDisplay = homeGeoDisplay
+    ? [...newRoute, { event: { host: '🏠 Home', address: homeAddrDisplay }, lat: homeGeoDisplay.lat, lng: homeGeoDisplay.lng, isHome: true }]
+    : newRoute;
+
+  window._currentRoute = newRoute;
+  window._currentDisplayRoute = newDisplay;
+
+  rerenderRouteStops(newDisplay, newRoute);
+  showToast(`✦ Re-optimised ${optimised.length} remaining stops`);
 }
 
 function recalcTimes() {
